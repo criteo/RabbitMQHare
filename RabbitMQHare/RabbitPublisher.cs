@@ -48,6 +48,7 @@ namespace RabbitMQHare
         private RabbitExchange myExchange;
         private Task send;
         private CancellationTokenSource cancellation;
+        private object _token = new object();
         public HarePublisherSettings MySettings {get;private set;}
 
         public bool Started { get; private set; }
@@ -171,7 +172,11 @@ namespace RabbitMQHare
                 }
                 else
                 {
-                    Thread.Sleep(1000);
+                    //Thread.Sleep(1000);
+                    lock (_token)
+                    {
+                        Monitor.Wait(_token);
+                    }
                 }
             }
         }
@@ -189,6 +194,10 @@ namespace RabbitMQHare
                 return false;
             }
             internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
+            lock (_token)
+            {
+                Monitor.Pulse(_token);
+            }
             return true;
         }
 
