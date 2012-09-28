@@ -1,0 +1,9 @@
+obj/
+bin/
+packages/
+*.user
+*.suo
+*.vsp
+*.ctl
+*.nupkg
+tools/srcpackages/
