@@ -62,7 +62,7 @@ namespace RabbitMQHare
             PermanentConnectionFailure permanentConnectionFailureHandler = null)
             : this(mySettings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler)
         {
-            myExchange = new RabbitExchange(destinationQueue.Name + "-" + random.Next());
+            myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange");
             myExchange.AutoDelete = true;
             redeclareMyTolology = m =>
             {
