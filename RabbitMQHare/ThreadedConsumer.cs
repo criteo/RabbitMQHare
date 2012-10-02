@@ -9,11 +9,12 @@ namespace RMQClient
 {
     public class ThreadedConsumer : DefaultBasicConsumer
     {
-        private Task[] _tasks;
+        private Thread _dispatch;
         private TaskScheduler _scheduler;
         private CancellationTokenSource _cts;
         private Queue<BasicDeliverEventArgs> _queue;
         private bool _queueClosed;
+        private int _taskCount;
 
         public ushort MaxWorker { get; private set; }
         public bool AutoAck { get; set; }
@@ -38,39 +39,66 @@ namespace RMQClient
             _cts = new CancellationTokenSource();
             _queue = new Queue<BasicDeliverEventArgs>();
             _queueClosed = false;
+            _taskCount = 0;
 
             AutoAck = autoAck;
             ShutdownTimeout = Timeout.Infinite;
             MaxWorker = Math.Min(maxWorker, (ushort)scheduler.MaximumConcurrencyLevel);
             Model.BasicQos(0, MaxWorker, false);
 
-            _tasks = new Task[MaxWorker];
-            for (int i = 0; i < MaxWorker; ++i)
+            _dispatch = new Thread(() =>
             {
-                _tasks[i] = new Task(() =>
+                while (!_cts.IsCancellationRequested)
                 {
-                    while (!_cts.IsCancellationRequested)
+                    try
                     {
-                        try
+                        BasicDeliverEventArgs e;
+                        lock (_queue)
                         {
-                            BasicDeliverEventArgs e;
-                            lock (_queue)
+                            while (!_cts.IsCancellationRequested && (_queue.Count == 0 || _taskCount == MaxWorker))
                             {
-                                while (!_cts.IsCancellationRequested && _queue.Count == 0)
-                                    Monitor.Wait(_queue);
-                                if (_queueClosed) break;
-                                e = _queue.Dequeue();
+                                Monitor.Wait(_queue);
                             }
-                            if (OnMessage != null) OnMessage(this, e);
-                            if (AutoAck) Model.BasicAck(e.DeliveryTag, false);
+                            if (_queueClosed) break;
+                            e = _queue.Dequeue();
+                            ++_taskCount;
                         }
-                        catch (Exception ex)
+
+                        var task = new Task(() =>
                         {
-                            if (OnError != null) OnError(this, new CallbackExceptionEventArgs(ex));
-                        }
+                            try
+                            {
+                                if (OnMessage != null) OnMessage(this, e);
+                                if (AutoAck) Model.BasicAck(e.DeliveryTag, false);
+                            }
+                            catch (Exception ex)
+                            {
+                                if (OnError != null) OnError(this, new CallbackExceptionEventArgs(ex));
+                            }
+                            finally
+                            {
+                                lock (_queue)
+                                {
+                                    --_taskCount;
+                                    Monitor.Pulse(_queue);
+                                }
+                            }
+                        }, _cts.Token);
+
+                        task.Start(_scheduler);
                     }
-                }, _cts.Token);
-            }
+                    catch (Exception ex)
+                    {
+                        if (OnError != null) OnError(this, new CallbackExceptionEventArgs(ex));
+                    }
+                }
+
+                lock (_queue)
+                {
+                    while (_taskCount > 0) Monitor.Wait(_queue);
+                }
+            });
+            _dispatch.IsBackground = true;
         }
 
         public override void OnCancel()
@@ -83,15 +111,14 @@ namespace RMQClient
                 _queueClosed = true;
                 Monitor.PulseAll(_queue);
             }
-            Task.WaitAll(_tasks, ShutdownTimeout);
+            _dispatch.Join(ShutdownTimeout);
         }
 
         public override void HandleBasicConsumeOk(string consumerTag)
         {
             base.HandleBasicConsumeOk(consumerTag);
             if (OnStart != null) OnStart(this, new ConsumerEventArgs(consumerTag));
-
-            foreach (var task in _tasks) task.Start(_scheduler);
+            _dispatch.Start();
         }
 
         public override void HandleBasicCancelOk(string consumerTag)
