@@ -31,7 +31,11 @@ namespace RabbitMQHare
             consSettings.ConnectionFactory.VirtualHost = "Test";
             consSettings.MaxWorkers = 48;
             ConsumerEventHandler stop = (e, o) => Console.WriteLine(o.ConsumerTag + " will stop");
-            CallbackExceptionEventHandler excep =  (_, e)=> Console.WriteLine("error " + e.ToString());
+            ThreadedConsumer.CallbackExceptionEventHandlerWithMessage excep =  (_, e,message)=>
+                {
+                    ((ThreadedConsumer) _).Model.BasicAck(message.DeliveryTag, false);
+                    Console.WriteLine("error " + e.ToString());
+                };
             BasicDeliverEventHandler messageHandler = (_, e) => Console.WriteLine(e.Body);
 
             var ex = new RabbitQueue("ControlBob");

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace RabbitMQHare
 {
-    public struct HarePublisherSettings : HareSettings
+    public struct HarePublisherSettings : IHareSettings
     {
         public int MaxMessageWaitingToBeSent { get; set; }
 
@@ -41,14 +41,14 @@ namespace RabbitMQHare
 
     public class RabbitPublisher : RabbitConnectorCommon, IDisposable
     {
-        private IBasicProperties props;
-        private ConcurrentQueue<KeyValuePair<string, byte[]>> internalQueue;
-        private object _lock = new object();
+        private IBasicProperties _props;
+        private readonly ConcurrentQueue<KeyValuePair<string, byte[]>> internalQueue;
+        private readonly object _lock = new object();
 
-        private RabbitExchange myExchange;
+        private readonly RabbitExchange _myExchange;
         private Task send;
         private CancellationTokenSource cancellation;
-        private object _token = new object();
+        private readonly object _token = new object();
         public HarePublisherSettings MySettings {get;private set;}
 
         public bool Started { get; private set; }
@@ -62,13 +62,12 @@ namespace RabbitMQHare
             PermanentConnectionFailure permanentConnectionFailureHandler = null)
             : this(mySettings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler)
         {
-            myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange");
-            myExchange.AutoDelete = true;
-            redeclareMyTolology = m =>
+            _myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange") {AutoDelete = true};
+            RedeclareMyTolology = m =>
             {
-                m.ExchangeDeclare(myExchange.Name, myExchange.Type, myExchange.Durable, myExchange.AutoDelete, myExchange.Arguments);
+                m.ExchangeDeclare(_myExchange.Name, _myExchange.Type, _myExchange.Durable, _myExchange.AutoDelete, _myExchange.Arguments);
                 m.QueueDeclare(destinationQueue.Name, destinationQueue.Durable, destinationQueue.Exclusive, destinationQueue.AutoDelete, destinationQueue.Arguments);
-                m.QueueBind(destinationQueue.Name, myExchange.Name, "toto");
+                m.QueueBind(destinationQueue.Name, _myExchange.Name, "toto");
             };
         }
 
@@ -82,11 +81,8 @@ namespace RabbitMQHare
             PermanentConnectionFailure permanentConnectionFailureHandler = null)
             : this(mySettings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler)
         {
-            myExchange = exchange;
-            redeclareMyTolology = m =>
-            {
-                m.ExchangeDeclare(myExchange.Name, myExchange.Type, myExchange.Durable, myExchange.AutoDelete, myExchange.Arguments);
-            };
+            _myExchange = exchange;
+            RedeclareMyTolology = m => m.ExchangeDeclare(_myExchange.Name, _myExchange.Type, _myExchange.Durable, _myExchange.AutoDelete, _myExchange.Arguments);
         }
 
         /// <summary>
@@ -99,8 +95,8 @@ namespace RabbitMQHare
             PermanentConnectionFailure permanentConnectionFailureHandler = null)
             : this(mySettings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler)
         {
-            myExchange = exchange;
-            redeclareMyTolology = redeclareTopology;
+            _myExchange = exchange;
+            RedeclareMyTolology = redeclareTopology;
         }
 
         private RabbitPublisher(HarePublisherSettings settings,
@@ -136,8 +132,8 @@ namespace RabbitMQHare
         /// </summary>
         internal override void SpecificRestart(IModel model)
         {
-            props = model.CreateBasicProperties();
-            MySettings.ConstructProperties(props);
+            _props = model.CreateBasicProperties();
+            MySettings.ConstructProperties(_props);
         }
 
         /// <summary>
@@ -159,7 +155,7 @@ namespace RabbitMQHare
                             byte[] message = res.Value;
                             try
                             {
-                                model.BasicPublish(myExchange.Name, routingKey, props, message);
+                                Model.BasicPublish(_myExchange.Name, routingKey, _props, message);
                                 internalQueue.TryDequeue(out res); //confirm that message was correctly dequeued
                             }
                             catch
@@ -204,8 +200,8 @@ namespace RabbitMQHare
         public override void Dispose()
         {
             cancellation.Cancel();
-            System.Threading.Monitor.TryEnter(_lock, TimeSpan.FromSeconds(30));
-            model.Dispose();
+            Monitor.TryEnter(_lock, TimeSpan.FromSeconds(30));
+            Model.Dispose();
         }
 
 

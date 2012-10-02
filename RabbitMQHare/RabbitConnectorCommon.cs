@@ -2,11 +2,10 @@
 using System.Collections.Generic;
 using System.Threading;
 using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
 
 namespace RabbitMQHare
 {
-    public interface HareSettings
+    public interface IHareSettings
     {
         ConnectionFactory ConnectionFactory { get; set; }
         int MaxConnectionRetry { get; set; }
@@ -60,11 +59,11 @@ namespace RabbitMQHare
         public delegate void TemporaryConnectionFailure(Exception e);
         public delegate void PermanentConnectionFailure(RabbitMQ.Client.Exceptions.BrokerUnreachableException e);
 
-        internal IConnection connection;
-        internal IModel model;
-        private HareSettings _settings;
+        internal IConnection Connection;
+        internal IModel Model;
+        private readonly IHareSettings _settings;
 
-        internal Action<IModel> redeclareMyTolology;
+        internal Action<IModel> RedeclareMyTolology;
 
         internal abstract void SpecificRestart(IModel model);
         public abstract void Dispose();
@@ -84,7 +83,7 @@ namespace RabbitMQHare
         private event PermanentConnectionFailure PermanentConnectionFailureHandler;
 
         internal RabbitConnectorCommon(
-            HareSettings settings,
+            IHareSettings settings,
             TemporaryConnectionFailure temporaryConnectionFailureHandler,
             PermanentConnectionFailure permanentConnectionFailureHandler
             )
@@ -105,11 +104,11 @@ namespace RabbitMQHare
             {
                 try
                 {
-                    connection = _settings.ConnectionFactory.CreateConnection();
-                    model = connection.CreateModel();
-                    connection.AutoClose = true;
-                    redeclareMyTolology(model);
-                    SpecificRestart(model);
+                    Connection = _settings.ConnectionFactory.CreateConnection();
+                    Model = Connection.CreateModel();
+                    Connection.AutoClose = true;
+                    RedeclareMyTolology(Model);
+                    SpecificRestart(Model);
                     ok = true;
                 }
                 catch (Exception e)

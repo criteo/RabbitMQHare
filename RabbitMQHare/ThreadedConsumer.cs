@@ -5,14 +5,16 @@ using System.Threading.Tasks;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
-namespace RMQClient
+namespace RabbitMQHare
 {
     public class ThreadedConsumer : DefaultBasicConsumer
     {
-        private Thread _dispatch;
-        private TaskScheduler _scheduler;
-        private CancellationTokenSource _cts;
-        private Queue<BasicDeliverEventArgs> _queue;
+        public delegate  void CallbackExceptionEventHandlerWithMessage(object sender, CallbackExceptionEventArgs exception, BasicDeliverEventArgs e);
+
+        private readonly Thread _dispatch;
+        private readonly TaskScheduler _scheduler;
+        private readonly CancellationTokenSource _cts;
+        private readonly Queue<BasicDeliverEventArgs> _queue;
         private bool _queueClosed;
         private int _taskCount;
 
@@ -24,7 +26,10 @@ namespace RMQClient
         public event ConsumerEventHandler OnStart;
         public event ConsumerEventHandler OnStop;
         public event ConsumerEventHandler OnDelete;
-        public event CallbackExceptionEventHandler OnError;
+        /// <summary>
+        /// Callback for all errors other than connection. It is your responsability to ack the message that may be passed.
+        /// </summary>
+        public event CallbackExceptionEventHandlerWithMessage OnError;
         public event ConsumerShutdownEventHandler OnShutdown;
 
         public ThreadedConsumer(IModel model, ushort maxWorker, bool autoAck)
@@ -50,9 +55,9 @@ namespace RMQClient
             {
                 while (!_cts.IsCancellationRequested)
                 {
+                    BasicDeliverEventArgs e = null;
                     try
                     {
-                        BasicDeliverEventArgs e;
                         lock (_queue)
                         {
                             while (!_cts.IsCancellationRequested && (_queue.Count == 0 || _taskCount == MaxWorker))
@@ -73,7 +78,7 @@ namespace RMQClient
                             }
                             catch (Exception ex)
                             {
-                                if (OnError != null) OnError(this, new CallbackExceptionEventArgs(ex));
+                                if (OnError != null) OnError(this, new CallbackExceptionEventArgs(ex),e);
                             }
                             finally
                             {
@@ -89,7 +94,7 @@ namespace RMQClient
                     }
                     catch (Exception ex)
                     {
-                        if (OnError != null) OnError(this, new CallbackExceptionEventArgs(ex));
+                        if (OnError != null) OnError(this, new CallbackExceptionEventArgs(ex), e);
                     }
                 }
 
@@ -141,7 +146,7 @@ namespace RMQClient
 
         public override void HandleBasicDeliver(string consumerTag, ulong deliveryTag, bool redelivered, string exchange, string routingKey, IBasicProperties properties, byte[] body)
         {
-            BasicDeliverEventArgs e = new BasicDeliverEventArgs();
+            var e = new BasicDeliverEventArgs();
             e.ConsumerTag = consumerTag;
             e.DeliveryTag = deliveryTag;
             e.Redelivered = redelivered;
