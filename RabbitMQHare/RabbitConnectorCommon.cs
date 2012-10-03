@@ -115,7 +115,7 @@ namespace RabbitMQHare
                 catch (Exception e)
                 {
                     exceptions[retries] = e;
-                    attempts[retries] = string.Format("{1} : Attempt {0}", retries, Sdk.NewTimeStamp.DateTimeNowUTC);
+                    attempts[retries] = string.Format("{1} : Attempt {0}", retries, DateTime.UtcNow);
                     if (TemporaryConnectionFailureHandler != null) TemporaryConnectionFailureHandler(e);
                     Thread.Sleep(_settings.IntervalConnectionTries);
                 }
