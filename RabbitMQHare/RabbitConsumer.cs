@@ -4,16 +4,29 @@ using RabbitMQ.Client.Events;
 
 namespace RabbitMQHare
 {
+    /// <summary>
+    /// Settings used to construct a consumer. If you don't use HareConsumerSettings.DefaultSettings you have to fill all parameters.
+    /// </summary>
     public struct HareConsumerSettings : IHareSettings
     {
+        /// <summary>
+        /// Maxmimum number of concurrents messages processed at the same time. DefaultSettings sets it to 1
+        /// </summary>
         public int MaxWorkers { get; set; }
 
         /// <summary>
-        /// If false, it is your responsability to ack each message in your MessageHandler. Default is true
+        /// If false, it is your responsability to ack each message in your MessageHandler. DefaultSettings sets it to True
         /// </summary>
         public bool AcknowledgeMessageForMe { get; set; }
 
+        /// <summary>
+        /// You can provide a way to modify the IBasicProperties of all messages. DefaultSettings sets it to  "text/plain" type and transient messages
+        /// </summary>
         public ConnectionFactory ConnectionFactory { get; set; }
+
+        /// <summary>
+        /// When connection fails, indicates the maximum numbers of tries before calling the permanent connection failure handler. DefaultSettings sets it to 5
+        /// </summary>
         public int MaxConnectionRetry { get; set; }
 
         /// <summary>
@@ -34,7 +47,7 @@ namespace RabbitMQHare
 
     public class RabbitConsumer : RabbitConnectorCommon
     {
-        private readonly RabbitQueue myQueue;
+        private readonly RabbitQueue _myQueue;
         private ThreadedConsumer _myConsumer;
         private string _myConsumerTag;
 
@@ -47,8 +60,15 @@ namespace RabbitMQHare
         /// <summary>
         /// Create a rabbitconsumer which will consume message from a PUBLIC (topic) exchange
         /// </summary>
-        /// <param name="exchangeName"></param>
-        /// <param name="routingKeytoBind"></param>
+        /// <param name="settings">Settings used to construct the consumer</param>
+        /// <param name="exchangeName">the exchange you want to listen to</param>
+        /// <param name="routingKeytoBind">the routing key binding. For instance data.* or message.for.me</param>
+        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
+        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
+        /// <param name="startHandler">Handler that will be called when the consumer is starting</param>
+        /// <param name="stopHandler">Handler that will be called when the consumer stops</param>
+        /// <param name="errorHandler">Handler that is called when 1)the messageHandler throws an exception 2)the consumer itself throws an exception. You have to ack the message in both case (even if AcknowledgeMessageForMe is set to true)</param>
+        /// <param name="messageHandler">Handler called for each message received. If you forgot to set this one, the consumer will swallow messages as fast as it can</param>
         public RabbitConsumer(HareConsumerSettings settings, string exchangeName, string routingKeytoBind,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
             PermanentConnectionFailure permanentConnectionFailureHandler = null,
@@ -58,23 +78,28 @@ namespace RabbitMQHare
             BasicDeliverEventHandler messageHandler = null)
             : this(settings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler, startHandler, stopHandler, errorHandler, messageHandler)
         {
-            var exchange = new RabbitExchange(exchangeName);
-            exchange.Type = ExchangeType.Topic;
-            exchange.AutoDelete = false;
-            myQueue = new RabbitQueue(exchange.Name + "-" + random.Next());
-            myQueue.AutoDelete = true;
+            var exchange = new RabbitExchange(exchangeName) {Type = ExchangeType.Topic, AutoDelete = false};
+            _myQueue = new RabbitQueue(exchange.Name + "-" + random.Next()) {AutoDelete = true};
             RedeclareMyTolology = m =>
             {
                 m.ExchangeDeclare(exchange.Name, exchange.Type);
-                m.QueueDeclare(myQueue.Name, myQueue.Durable, myQueue.Exclusive, myQueue.AutoDelete, myQueue.Arguments);
-                m.QueueBind(myQueue.Name, exchange.Name, routingKeytoBind);
+                m.QueueDeclare(_myQueue.Name, _myQueue.Durable, _myQueue.Exclusive, _myQueue.AutoDelete, _myQueue.Arguments);
+                m.QueueBind(_myQueue.Name, exchange.Name, routingKeytoBind);
             };
         }
+
 
         /// <summary>
         /// Create a rabbitconsumer which will consume message from a PUBLIC (fanout) exchange
         /// </summary>
-        /// <param name="exchange"></param>
+        /// <param name="settings">Settings used to construct the consumer</param>
+        /// <param name="exchange">the exchange you want to listen to</param>
+        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
+        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
+        /// <param name="startHandler">Handler that will be called when the consumer is starting</param>
+        /// <param name="stopHandler">Handler that will be called when the consumer stops</param>
+        /// <param name="errorHandler">Handler that is called when 1)the messageHandler throws an exception 2)the consumer itself throws an exception. You have to ack the message in both case (even if AcknowledgeMessageForMe is set to true)</param>
+        /// <param name="messageHandler">Handler called for each message received. If you forgot to set this one, the consumer will swallow messages as fast as it can</param>
         public RabbitConsumer(HareConsumerSettings settings, RabbitExchange exchange,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
             PermanentConnectionFailure permanentConnectionFailureHandler = null,
@@ -84,20 +109,26 @@ namespace RabbitMQHare
             BasicDeliverEventHandler messageHandler = null)
             : this(settings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler, startHandler, stopHandler, errorHandler, messageHandler)
         {
-            myQueue = new RabbitQueue(exchange.Name + "-" + random.Next()) {AutoDelete = true};
+            _myQueue = new RabbitQueue(exchange.Name + "-" + random.Next()) {AutoDelete = true};
             RedeclareMyTolology = m =>
             {
                 m.ExchangeDeclare(exchange.Name, ExchangeType.Fanout);
-                m.QueueDeclare(myQueue.Name, myQueue.Durable, myQueue.Exclusive, myQueue.AutoDelete, myQueue.Arguments);
-                m.QueueBind(myQueue.Name, exchange.Name, "toto");
+                m.QueueDeclare(_myQueue.Name, _myQueue.Durable, _myQueue.Exclusive, _myQueue.AutoDelete, _myQueue.Arguments);
+                m.QueueBind(_myQueue.Name, exchange.Name, "toto");
             };
         }
-
 
         /// <summary>
         /// Create a rabbitconsumer which will consume message from a PUBLIC queue without knowing who will feed it
         /// </summary>
-        /// <param name="queue"></param>
+        /// <param name="settings">Settings used to construct the consumer</param>
+        /// <param name="queue">the queue you want to listen to</param>
+        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
+        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
+        /// <param name="startHandler">Handler that will be called when the consumer is starting</param>
+        /// <param name="stopHandler">Handler that will be called when the consumer stops</param>
+        /// <param name="errorHandler">Handler that is called when 1)the messageHandler throws an exception 2)the consumer itself throws an exception. You have to ack the message in both case (even if AcknowledgeMessageForMe is set to true)</param>
+        /// <param name="messageHandler">Handler called for each message received. If you forgot to set this one, the consumer will swallow messages as fast as it can</param>
         public RabbitConsumer(HareConsumerSettings settings, RabbitQueue queue,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
             PermanentConnectionFailure permanentConnectionFailureHandler = null,
@@ -107,15 +138,22 @@ namespace RabbitMQHare
             BasicDeliverEventHandler messageHandler = null)
             : this(settings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler, startHandler, stopHandler, errorHandler, messageHandler)
         {
-            myQueue = queue;
-            RedeclareMyTolology = m => m.QueueDeclare(myQueue.Name, myQueue.Durable, myQueue.Exclusive, myQueue.AutoDelete, myQueue.Arguments);
+            _myQueue = queue;
+            RedeclareMyTolology = m => m.QueueDeclare(_myQueue.Name, _myQueue.Durable, _myQueue.Exclusive, _myQueue.AutoDelete, _myQueue.Arguments);
         }
 
         /// <summary>
         /// Raw constructor. You give the Queue and a handler to create the topology. Use at your own risk !
         /// </summary>
-        /// <param name="queue"></param>
-        /// <param name="redeclareTopology">this action should declare all your topology, including the queue on which it </param>
+        /// <param name="settings">Settings used to construct the consumer</param>
+        /// <param name="queue">the queue you want to listen to. It won't be created, you have to create it in redeclareTopology</param>
+        /// <param name="redeclareTopology">Construct your complete, twisted, complex topology :) </param>
+        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
+        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
+        /// <param name="startHandler">Handler that will be called when the consumer is starting</param>
+        /// <param name="stopHandler">Handler that will be called when the consumer stops</param>
+        /// <param name="errorHandler">Handler that is called when 1)the messageHandler throws an exception 2)the consumer itself throws an exception. You have to ack the message in both case (even if AcknowledgeMessageForMe is set to true)</param>
+        /// <param name="messageHandler">Handler called for each message received. If you forgot to set this one, the consumer will swallow messages as fast as it can</param>
         public RabbitConsumer(
             HareConsumerSettings settings, RabbitQueue queue, Action<IModel> redeclareTopology,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
@@ -126,7 +164,7 @@ namespace RabbitMQHare
             BasicDeliverEventHandler messageHandler = null)
             : this(settings,temporaryConnectionFailureHandler, permanentConnectionFailureHandler, startHandler, stopHandler, errorHandler, messageHandler)
         {
-            myQueue = queue;
+            _myQueue = queue;
             this.RedeclareMyTolology = redeclareTopology;
         }
 
@@ -159,13 +197,13 @@ namespace RabbitMQHare
         }
 
         /// <summary>
-        /// Start the consuming of messages. This method is automatically called everytime there is a network failure.
+        /// Start consuming messages. Not thread safe ! You should call it once. This api might call it at each connection failure.
         /// </summary>
         public void Start()
         {
             InternalStart();
             // The false for noHack is mandatory. Otherwise it will simply dequeue messages all the time.
-            _myConsumerTag = Model.BasicConsume(myQueue.Name, false, _myConsumer);
+            _myConsumerTag = Model.BasicConsume(_myQueue.Name, false, _myConsumer);
         }
 
         public ConsumerShutdownEventHandler GetShutdownHandler()

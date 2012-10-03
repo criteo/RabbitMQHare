@@ -9,6 +9,12 @@ namespace RabbitMQHare
 {
     public class ThreadedConsumer : DefaultBasicConsumer
     {
+        /// <summary>
+        /// Callback used to give control on the message being processed while an exception was thrown.
+        /// </summary>
+        /// <param name="sender">The threadedConsumer</param>
+        /// <param name="exception">The exception that was thrown. Might be an business exception (thrown by your OnMessage handler) or internal exception thrown by consumer</param>
+        /// <param name="e">The message so you can ack it if needed.</param>
         public delegate  void CallbackExceptionEventHandlerWithMessage(object sender, CallbackExceptionEventArgs exception, BasicDeliverEventArgs e);
 
         private readonly Thread _dispatch;
@@ -18,19 +24,45 @@ namespace RabbitMQHare
         private bool _queueClosed;
         private int _taskCount;
 
+        /// <summary>
+        ///  Maxmimum number of concurrents messages processed at the same time.
+        /// </summary>
         public ushort MaxWorker { get; private set; }
+        /// <summary>
+        /// If true, threadedConsumer will ack messages right after the synchronous call of OnMessage. Else you have to ack messages.
+        /// </summary>
         public bool AutoAck { get; set; }
+
+        /// <summary>
+        /// Maximum waiting time of OnMessage handlers to finish before disposing. Default to Infinite. 
+        /// </summary>
         public int ShutdownTimeout { get; set; }
 
+        /// <summary>
+        /// Handler called when a message is received and a spot is freed. If not provided it will swallow messages as fast as it can.
+        /// </summary>
         public event BasicDeliverEventHandler OnMessage;
+        /// <summary>
+        /// Handler called at start
+        /// </summary>
         public event ConsumerEventHandler OnStart;
+        /// <summary>
+        /// Handler called when the consumer will stop
+        /// </summary>
         public event ConsumerEventHandler OnStop;
+        /// <summary>
+        /// Handler called when rabbit mq broker deletes the connection
+        /// </summary>
         public event ConsumerEventHandler OnDelete;
         /// <summary>
-        /// Callback for all errors other than connection. It is your responsability to ack the message that may be passed.
+        /// Handler called for all errors other than connection. It is your responsability to ack the message that may be passed.
         /// </summary>
         public event CallbackExceptionEventHandlerWithMessage OnError;
+        /// <summary>
+        /// Handler called when connection issues occurs.
+        /// </summary>
         public event ConsumerShutdownEventHandler OnShutdown;
+
 
         public ThreadedConsumer(IModel model, ushort maxWorker, bool autoAck)
             : this(model, maxWorker, autoAck, TaskScheduler.Default)
@@ -146,14 +178,16 @@ namespace RabbitMQHare
 
         public override void HandleBasicDeliver(string consumerTag, ulong deliveryTag, bool redelivered, string exchange, string routingKey, IBasicProperties properties, byte[] body)
         {
-            var e = new BasicDeliverEventArgs();
-            e.ConsumerTag = consumerTag;
-            e.DeliveryTag = deliveryTag;
-            e.Redelivered = redelivered;
-            e.Exchange = exchange;
-            e.RoutingKey = routingKey;
-            e.BasicProperties = properties;
-            e.Body = body;
+            var e = new BasicDeliverEventArgs
+                {
+                    ConsumerTag = consumerTag,
+                    DeliveryTag = deliveryTag,
+                    Redelivered = redelivered,
+                    Exchange = exchange,
+                    RoutingKey = routingKey,
+                    BasicProperties = properties,
+                    Body = body
+                };
 
             lock (_queue)
             {

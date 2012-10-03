@@ -7,16 +7,29 @@ using System.Threading.Tasks;
 
 namespace RabbitMQHare
 {
+    /// <summary>
+    /// Settings used to construct a publisher. If you don't use HarePublisherSettings.DefaultSettings you have to fill all parameters.
+    /// </summary>
     public struct HarePublisherSettings : IHareSettings
     {
+        /// <summary>
+        /// Maximum number of message waiting to be sent. Above this limit, new messages won't be added. DefaultSettings sets it to 10000
+        /// </summary>
         public int MaxMessageWaitingToBeSent { get; set; }
 
         /// <summary>
-        /// You can provide a way to modify the IBasicProperties of all the next messages. Default is "text/plain" type and transient messages
+        /// You can provide a way to modify the IBasicProperties of all messages. DefaultSettings sets it to  "text/plain" type and transient messages
         /// </summary>
         public Action<IBasicProperties> ConstructProperties { get; set; }
 
+        /// <summary>
+        /// RabbitMQ object to specify how to connect to rabbitMQ. DefaultSettings sets it to localhost:5672 on virtual host "/"
+        /// </summary>
         public ConnectionFactory ConnectionFactory { get; set; }
+
+        /// <summary>
+        /// When connection fails, indicates the maximum numbers of tries before calling the permanent connection failure handler. DefaultSettings sets it to 5
+        /// </summary>
         public int MaxConnectionRetry { get; set; }
 
         /// <summary>
@@ -42,27 +55,30 @@ namespace RabbitMQHare
     public class RabbitPublisher : RabbitConnectorCommon, IDisposable
     {
         private IBasicProperties _props;
-        private readonly ConcurrentQueue<KeyValuePair<string, byte[]>> internalQueue;
+        private readonly ConcurrentQueue<KeyValuePair<string, byte[]>> _internalQueue;
         private readonly object _lock = new object();
 
         private readonly RabbitExchange _myExchange;
         private Task send;
         private CancellationTokenSource cancellation;
         private readonly object _token = new object();
-        public HarePublisherSettings MySettings {get;private set;}
+        public HarePublisherSettings MySettings { get; private set; }
 
         public bool Started { get; private set; }
 
         /// <summary>
         /// Publish to a PUBLIC queue
         /// </summary>
-        /// <param name="destinationQueue"></param>
+        /// <param name="mySettings">Settings used to construct a publisher</param>
+        /// <param name="destinationQueue">public queue you want to connect to</param>
+        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
+        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitQueue destinationQueue,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
             PermanentConnectionFailure permanentConnectionFailureHandler = null)
             : this(mySettings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler)
         {
-            _myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange") {AutoDelete = true};
+            _myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange") { AutoDelete = true };
             RedeclareMyTolology = m =>
             {
                 m.ExchangeDeclare(_myExchange.Name, _myExchange.Type, _myExchange.Durable, _myExchange.AutoDelete, _myExchange.Arguments);
@@ -74,8 +90,10 @@ namespace RabbitMQHare
         /// <summary>
         /// Publish to a PUBLIC exchange
         /// </summary>
-        /// <param name="pool"></param>
-        /// <param name="exchange"></param>
+        /// <param name="mySettings">Settings used to construct a publisher</param>
+        /// <param name="exchange">public exchange you want to connect to</param>
+        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
+        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
             PermanentConnectionFailure permanentConnectionFailureHandler = null)
@@ -90,6 +108,8 @@ namespace RabbitMQHare
         /// </summary>
         /// <param name="exchange">Exchange you will sent message to. It won't be created, you have to create it in the redeclareToplogy parameter</param>
         /// <param name="redeclareTopology">Just create the topology you need</param>
+        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
+        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange, Action<IModel> redeclareTopology,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
             PermanentConnectionFailure permanentConnectionFailureHandler = null)
@@ -109,11 +129,11 @@ namespace RabbitMQHare
             Started = false;
             MySettings = settings;
 
-            internalQueue = new ConcurrentQueue<KeyValuePair<string, byte[]>>();
+            _internalQueue = new ConcurrentQueue<KeyValuePair<string, byte[]>>();
         }
 
         /// <summary>
-        /// Start to publish. This method is NOT thread-safe
+        /// Start to publish. This method is NOT thread-safe. Advice is to use it once.
         /// </summary>
         public void Start()
         {
@@ -124,11 +144,11 @@ namespace RabbitMQHare
                 send.Start();
                 Started = true;
             }
-            //no more modying after this point
+            //no more modifying after this point
         }
 
         /// <summary>
-        /// Method that should be called everytime there is a network failure.
+        /// Method that will be called everytime there is a network failure.
         /// </summary>
         internal override void SpecificRestart(IModel model)
         {
@@ -145,7 +165,7 @@ namespace RabbitMQHare
             while (!token.IsCancellationRequested)
             {
                 KeyValuePair<string, byte[]> res;
-                if (internalQueue.TryPeek(out res))
+                if (_internalQueue.TryPeek(out res))
                 {
                     lock (_lock)
                     {
@@ -156,14 +176,14 @@ namespace RabbitMQHare
                             try
                             {
                                 Model.BasicPublish(_myExchange.Name, routingKey, _props, message);
-                                internalQueue.TryDequeue(out res); //confirm that message was correctly dequeued
+                                _internalQueue.TryDequeue(out res); //confirm that message was correctly dequeued
                             }
                             catch
                             {
                                 //No need to offer any event handler since reconnection will probably fail at the first time and the standard handlers will be called
                                 Start();
                             }
-                        } while (internalQueue.TryPeek(out res));
+                        } while (_internalQueue.TryPeek(out res));
                     }
                 }
                 else
@@ -180,16 +200,16 @@ namespace RabbitMQHare
         /// <summary>
         /// Add message that will be sent asynchronously. This method is thread-safe
         /// </summary>
-        /// <param name="routingKey"></param>
-        /// <param name="message"></param>
+        /// <param name="routingKey">routing key used to route the message. If not needed just put "toto"</param>
+        /// <param name="message">the message you want to send</param>
         /// <returns>false if the message was droppped instead of added to the queue</returns>
         public bool Publish(string routingKey, byte[] message)
         {
-            if (internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
+            if (_internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
             {
                 return false;
             }
-            internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
+            _internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
             lock (_token)
             {
                 Monitor.Pulse(_token);

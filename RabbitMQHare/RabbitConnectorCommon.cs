@@ -70,7 +70,8 @@ namespace RabbitMQHare
 
         [ThreadStatic]
         internal static Random r = null;
-        internal static Random random { get { if (r == null) r = new Random(); return r; } }
+        internal static Random random { get { return r ?? (r = new Random()); }
+        }
 
         /// <summary>
         /// Called when an exception is thrown when connecting to rabbit. It is called at most [MaxConnectionRetry] times before a more serious BrokerUnreachableException is thrown
