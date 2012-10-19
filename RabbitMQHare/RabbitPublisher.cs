@@ -195,6 +195,10 @@ namespace RabbitMQHare
                     {
                         do
                         {
+                            lock (_tokenBlocking)
+                            {
+                                Monitor.Pulse(_tokenBlocking);
+                            }
                             string routingKey = res.Key;
                             byte[] message = res.Value;
                             try
@@ -239,6 +243,28 @@ namespace RabbitMQHare
                 Monitor.Pulse(_token);
             }
             return true;
+        }
+
+        /// <summary>
+        /// Add message that will be sent asynchronously BUT might block if queue is full. This method is thread-safe
+        /// </summary>
+        /// <param name="routingKey">routing key used to route the message. If not needed just put "toto"</param>
+        /// <param name="message">the message you want to send</param>
+        public void BlockingPublish(string routingKey, byte[] message)
+        {
+            if (_internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
+            {
+                lock (_tokenBlocking)
+                {
+                    //TODO : instead of being unblocked by each dequeue, add a low watermark
+                    Monitor.Wait(_tokenBlocking);
+                }
+            }
+            _internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
+            lock (_token)
+            {
+                Monitor.Pulse(_token);
+            }
         }
 
         public override void Dispose()
