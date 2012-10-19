@@ -39,6 +39,8 @@ namespace RabbitMQHare
             BasicDeliverEventHandler messageHandler = (_, e) => Console.WriteLine(e.Body);
 
             var ex = new RabbitQueue("ControlBob");
+
+            
             using (var c = new RabbitConsumer(consSettings, ex, temp, perm, null, stop, excep, messageHandler))
             {
                 Console.WriteLine("Starting");
