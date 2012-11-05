@@ -34,6 +34,11 @@ namespace RabbitMQHare
         /// </summary>
         public TimeSpan IntervalConnectionTries { get; set; }
 
+        /// <summary>
+        /// Time given to message handler to finish in case of cancel event. Infinite if not set
+        /// </summary>
+        public TimeSpan? CancelationTime { get; set; }
+
         public static readonly HareConsumerSettings DefaultSettings = new HareConsumerSettings
         {
             ConnectionFactory = new ConnectionFactory() {HostName = "localhost",Port = 5672, UserName = "guest", Password = "guest", VirtualHost = "/", RequestedHeartbeat = 60},
@@ -187,6 +192,8 @@ namespace RabbitMQHare
         internal override void SpecificRestart(IModel model)
         {
             _myConsumer = new ThreadedConsumer(model, (ushort)_mySettings.MaxWorkers, _mySettings.AcknowledgeMessageForMe);
+            if (_mySettings.CancelationTime.HasValue)
+                _myConsumer.ShutdownTimeout = (int)Math.Min(_mySettings.CancelationTime.Value.TotalMilliseconds, int.MaxValue);
             _myConsumer.OnStart += StartHandler;
             _myConsumer.OnStop += StopHandler;
             _myConsumer.OnShutdown += GetShutdownHandler(); //automatically restart a new consumer in case of failure
