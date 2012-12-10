@@ -193,7 +193,7 @@ namespace RabbitMQHare
                 {
                     lock (_lock)
                     {
-                        do
+                        while (_internalQueue.TryDequeue(out res))
                         {
                             lock (_tokenBlocking)
                             {
@@ -204,14 +204,13 @@ namespace RabbitMQHare
                             try
                             {
                                 Model.BasicPublish(_myExchange.Name, routingKey, _props, message);
-                                _internalQueue.TryDequeue(out res); //confirm that message was correctly dequeued
                             }
                             catch
                             {
                                 //No need to offer any event handler since reconnection will probably fail at the first time and the standard handlers will be called
                                 Start();
                             }
-                        } while (_internalQueue.TryPeek(out res));
+                        } 
                     }
                 }
                 else
