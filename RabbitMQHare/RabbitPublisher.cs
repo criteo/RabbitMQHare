@@ -28,7 +28,7 @@ namespace RabbitMQHare
         public ConnectionFactory ConnectionFactory { get; set; }
 
         /// <summary>
-        /// When connection fails, indicates the maximum numbers of tries before calling the permanent connection failure handler. DefaultSettings sets it to 5
+        /// When connection fails, indicates the maximum numbers of tries before calling the permanent connection failure handler. DefaultSettings sets it to 5. -1 Is infinite
         /// </summary>
         public int MaxConnectionRetry { get; set; }
 

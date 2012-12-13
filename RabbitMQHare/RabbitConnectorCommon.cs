@@ -2,12 +2,17 @@
 using System.Collections.Generic;
 using System.Threading;
 using RabbitMQ.Client;
+using System.Collections;
 
 namespace RabbitMQHare
 {
     public interface IHareSettings
     {
         ConnectionFactory ConnectionFactory { get; set; }
+
+        /// <summary>
+        /// Maximum numbers of unsuccessful connection retry. -1 Is infinite
+        /// </summary>
         int MaxConnectionRetry { get; set; }
 
         /// <summary>
@@ -34,7 +39,7 @@ namespace RabbitMQHare
         public bool Durable { get; set; }
         public bool Exclusive { get; set; }
         public bool AutoDelete { get; set; }
-        public System.Collections.IDictionary Arguments { get; set; }
+        public IDictionary Arguments { get; set; }
     }
 
     public class RabbitExchange
@@ -51,7 +56,7 @@ namespace RabbitMQHare
         public string Type { get; set; }
         public bool Durable { get; set; }
         public bool AutoDelete { get; set; }
-        public System.Collections.IDictionary Arguments { get; set; }
+        public IDictionary Arguments { get; set; }
     }
 
     public abstract class RabbitConnectorCommon :  IDisposable
@@ -99,9 +104,9 @@ namespace RabbitMQHare
         {
             bool ok = false;
             int retries = 0;
-            var exceptions = new Dictionary<int, Exception>(_settings.MaxConnectionRetry);
-            var attempts = new Dictionary<int, string>(_settings.MaxConnectionRetry);
-            while (!ok && ++retries < _settings.MaxConnectionRetry)
+            var exceptions = new Dictionary<int, Exception>(Math.Max(1, _settings.MaxConnectionRetry));
+            var attempts = new Dictionary<int, string>(Math.Max(1, _settings.MaxConnectionRetry));
+            while (!ok && (++retries < _settings.MaxConnectionRetry ||_settings.MaxConnectionRetry == -1))
             {
                 try
                 {
