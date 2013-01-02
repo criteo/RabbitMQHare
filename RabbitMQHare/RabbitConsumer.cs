@@ -1,6 +1,7 @@
 ﻿using System;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.Threading.Tasks;
 
 namespace RabbitMQHare
 {
@@ -39,13 +40,25 @@ namespace RabbitMQHare
         /// </summary>
         public TimeSpan? CancelationTime { get; set; }
 
+        /// <summary>
+        /// Task scheduler used by workers
+        /// </summary>
+        public TaskScheduler TaskScheduler { get; set; }
+
         public static readonly HareConsumerSettings DefaultSettings = new HareConsumerSettings
         {
-            ConnectionFactory = new ConnectionFactory() {HostName = "localhost",Port = 5672, UserName = "guest", Password = "guest", VirtualHost = "/", RequestedHeartbeat = 60},
+            ConnectionFactory = new ConnectionFactory() {
+                HostName = "localhost",
+                Port = 5672, 
+                UserName = ConnectionFactory.DefaultUser, 
+                Password = ConnectionFactory.DefaultPass, 
+                VirtualHost = ConnectionFactory.DefaultVHost, 
+                RequestedHeartbeat = 60},
             MaxConnectionRetry = 5,
             IntervalConnectionTries = TimeSpan.FromSeconds(5),
             MaxWorkers = 1,
             AcknowledgeMessageForMe = true,
+            TaskScheduler = TaskScheduler.Default
         };
     }
 
@@ -191,7 +204,7 @@ namespace RabbitMQHare
 
         internal override void SpecificRestart(IModel model)
         {
-            _myConsumer = new ThreadedConsumer(model, (ushort)_mySettings.MaxWorkers, _mySettings.AcknowledgeMessageForMe);
+            _myConsumer = new ThreadedConsumer(model, (ushort)_mySettings.MaxWorkers, _mySettings.AcknowledgeMessageForMe, _mySettings.TaskScheduler ?? TaskScheduler.Default);
             if (_mySettings.CancelationTime.HasValue)
                 _myConsumer.ShutdownTimeout = (int)Math.Min(_mySettings.CancelationTime.Value.TotalMilliseconds, int.MaxValue);
             _myConsumer.OnStart += StartHandler;

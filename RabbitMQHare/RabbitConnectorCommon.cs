@@ -40,6 +40,15 @@ namespace RabbitMQHare
         public bool Exclusive { get; set; }
         public bool AutoDelete { get; set; }
         public IDictionary Arguments { get; set; }
+
+        /// <summary>
+        /// Declare the queue
+        /// </summary>
+        /// <param name="model"></param>
+        public void Declare(IModel model)
+        {
+            model.QueueDeclare(Name, Durable, Exclusive, AutoDelete, Arguments);
+        }
     }
 
     public class RabbitExchange
@@ -57,6 +66,15 @@ namespace RabbitMQHare
         public bool Durable { get; set; }
         public bool AutoDelete { get; set; }
         public IDictionary Arguments { get; set; }
+
+        /// <summary>
+        /// Declare the exchange
+        /// </summary>
+        /// <param name="model"></param>
+        public void Declare(IModel model)
+        {
+            model.ExchangeDeclare(Name, Type, Durable, AutoDelete, Arguments);
+        }
     }
 
     public abstract class RabbitConnectorCommon :  IDisposable
