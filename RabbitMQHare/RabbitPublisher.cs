@@ -51,7 +51,9 @@ namespace RabbitMQHare
         };
     }
 
-
+    /// <summary>
+    /// TODO doc 
+    /// </summary>
     public class RabbitPublisher : RabbitConnectorCommon, IDisposable
     {
         private IBasicProperties _props;
@@ -94,9 +96,67 @@ namespace RabbitMQHare
         /// </summary>
         /// <param name="mySettings">Settings used to construct a publisher</param>
         /// <param name="destinationQueue">public queue you want to connect to</param>
+        public RabbitPublisher(HarePublisherSettings mySettings, RabbitQueue destinationQueue)
+            : this(mySettings)
+        {
+            _myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange") { AutoDelete = true };
+            RedeclareMyTolology = m =>
+            {
+                _myExchange.Declare(m);
+                destinationQueue.Declare(m);
+                m.QueueBind(destinationQueue.Name, _myExchange.Name, "toto");
+            };
+        }
+
+        /// <summary>
+        /// Publish to a PUBLIC exchange
+        /// </summary>
+        /// <param name="mySettings">Settings used to construct a publisher</param>
+        /// <param name="exchange">public exchange you want to connect to</param>
+        public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange)
+            : this(mySettings)
+        {
+            _myExchange = exchange;
+            RedeclareMyTolology = _myExchange.Declare;
+        }
+
+        /// <summary>
+        /// Raw constructor, you have to do everything yourself
+        /// </summary>
+        /// <param name="mySettings"> </param>
+        /// <param name="exchange">Exchange you will sent message to. It *won't* be created, you have to create it in the redeclareToplogy parameter</param>
+        /// <param name="redeclareTopology">Just create the topology you need</param>
+        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
+        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
+        /// <param name="notEnqueuedHandler"> Handler called when messages are not enqueued because queue is full </param>
+        public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange, Action<IModel> redeclareTopology)
+            : this(mySettings)
+        {
+            _myExchange = exchange;
+            RedeclareMyTolology = redeclareTopology;
+        }
+
+        private RabbitPublisher(HarePublisherSettings settings)
+            : base(settings)
+        {
+            cancellation = new CancellationTokenSource();
+            send = new Task(() => DequeueSend(cancellation.Token));
+            Started = false;
+            MySettings = settings;
+
+            _internalQueue = new ConcurrentQueue<KeyValuePair<string, byte[]>>();
+        }
+
+        #region deprecated constructors
+        /// <summary>
+        /// Publish to a PUBLIC queue
+        /// </summary>
+        /// <param name="mySettings">Settings used to construct a publisher</param>
+        /// <param name="destinationQueue">public queue you want to connect to</param>
         /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
         /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
         /// <param name="notEnqueuedHandler">Handler called when messages are not enqueued because queue is full </param>
+        [Obsolete("Use version without optional parameter")]
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitQueue destinationQueue,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
             PermanentConnectionFailure permanentConnectionFailureHandler = null,
@@ -120,6 +180,7 @@ namespace RabbitMQHare
         /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
         /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
         /// <param name="notEnqueuedHandler">Handler called when messages are not enqueued because queue is full  </param>
+        [Obsolete("Use version without optional parameter")]
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
             PermanentConnectionFailure permanentConnectionFailureHandler = null,
@@ -139,6 +200,7 @@ namespace RabbitMQHare
         /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
         /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
         /// <param name="notEnqueuedHandler"> Handler called when messages are not enqueued because queue is full </param>
+        [Obsolete("Use version without optional parameter")]
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange, Action<IModel> redeclareTopology,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
             PermanentConnectionFailure permanentConnectionFailureHandler = null,
@@ -149,13 +211,14 @@ namespace RabbitMQHare
             RedeclareMyTolology = redeclareTopology;
         }
 
+        [Obsolete("Use version without optional parameter")]
         private RabbitPublisher(HarePublisherSettings settings,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
             PermanentConnectionFailure permanentConnectionFailureHandler = null,
             NotEnqueued notEnqueuedHandler = null,
             ACLFailure aclFailureHandler = null,
             EventHandlerFailure eventFailureHandler = null)
-            : base(settings)
+            : this(settings)
         {
             if (notEnqueuedHandler != null) NotEnqueuedHandler += notEnqueuedHandler;
 
@@ -171,6 +234,7 @@ namespace RabbitMQHare
 
             _internalQueue = new ConcurrentQueue<KeyValuePair<string, byte[]>>();
         }
+        #endregion
 
         /// <summary>
         /// Start to publish. This method is NOT thread-safe. Advice is to use it once.
