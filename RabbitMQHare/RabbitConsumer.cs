@@ -45,6 +45,9 @@ namespace RabbitMQHare
         /// </summary>
         public TaskScheduler TaskScheduler { get; set; }
 
+        /// <summary>
+        /// Settings that can work for small, simple use cases
+        /// </summary>
         public static readonly HareConsumerSettings DefaultSettings = new HareConsumerSettings
         {
             ConnectionFactory = new ConnectionFactory() {
@@ -71,29 +74,29 @@ namespace RabbitMQHare
 
         /// <summary>
         /// Event handler for messages. If you modify this after Start methed is called, it won't be applied 
-        /// until next restart (connection issue)
+        /// until next restart (=connection issue)
         ///  If you forgot to set this one, the consumer will swallow messages as fast as it can
         /// </summary>
         public event BasicDeliverEventHandler MessageHandler;
 
         /// <summary>
-        /// Event handler for messages handler failure. If you modify this after Start methed is called, it won't be applied 
+        /// Event handler for messages handler failure. If you modify this after Start method is called, it won't be applied 
         /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
-        /// Handler that is called when 
+        /// Handler that is called when :
         /// 1)the messageHandler throws an exception 
         /// 2)the consumer itself throws an exception. 
-        /// You have to ack the message in both case (even if AcknowledgeMessageForMe is set to true)
+        /// You have to decide wether to ack the message in both case (even if AcknowledgeMessageForMe is set to true)
         /// </summary>
         public event ThreadedConsumer.CallbackExceptionEventHandlerWithMessage ErrorHandler;
 
         /// <summary>
-        /// Handler called at each start (and restart). If you modify this after Start methed is called, it won't be applied 
+        /// Handler called at each start (and restart). If you modify this after Start method is called, it won't be applied 
         /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
         /// </summary>
         public event ConsumerEventHandler StartHandler;
 
         /// <summary>
-        /// Handler called at each stop. If you modify this after Start methed is called, it won't be applied 
+        /// Handler called at each stop. If you modify this after Start method is called, it won't be applied 
         /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
         /// </summary>
         public event ConsumerEventHandler StopHandler;

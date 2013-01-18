@@ -125,10 +125,6 @@ namespace RabbitMQHare
         /// </summary>
         /// <param name="mySettings"> </param>
         /// <param name="exchange">Exchange you will sent message to. It *won't* be created, you have to create it in the redeclareToplogy parameter</param>
-        /// <param name="redeclareTopology">Just create the topology you need</param>
-        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
-        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
-        /// <param name="notEnqueuedHandler"> Handler called when messages are not enqueued because queue is full </param>
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange, Action<IModel> redeclareTopology)
             : this(mySettings)
         {

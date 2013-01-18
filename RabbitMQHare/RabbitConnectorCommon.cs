@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using RabbitMQ.Client;
@@ -12,7 +11,8 @@ namespace RabbitMQHare
         ConnectionFactory ConnectionFactory { get; set; }
 
         /// <summary>
-        /// Maximum numbers of unsuccessful connection retry. -1 is infinite
+        /// Maximum numbers of unsuccessful connection retry. 
+        /// -1 (System.Threading.Timeout.Infinite) is infinite
         /// </summary>
         int MaxConnectionRetry { get; set; }
 
@@ -22,70 +22,12 @@ namespace RabbitMQHare
         TimeSpan IntervalConnectionTries { get; set; }
     }
 
-    public class RabbitQueue
-    {
-        /// <summary>
-        /// A non durable, non exclusive, non auto-delete queue.
-        /// </summary>
-        /// <param name="name"></param>
-        public RabbitQueue(string name)
-        {
-            Name = name;
-            Durable = false;
-            Exclusive = false;
-            AutoDelete = false;
-        }
-
-        public string Name { get; private set; }
-        public bool Durable { get; set; }
-        public bool Exclusive { get; set; }
-        public bool AutoDelete { get; set; }
-        public IDictionary Arguments { get; set; }
-
-        /// <summary>
-        /// Declare the queue
-        /// </summary>
-        /// <param name="model"></param>
-        public void Declare(IModel model)
-        {
-            model.QueueDeclare(Name, Durable, Exclusive, AutoDelete, Arguments);
-        }
-    }
-
-    public class RabbitExchange
-    {
-        public RabbitExchange(string name)
-        {
-            Name = name;
-            Type = ExchangeType.Fanout;
-            Durable = false;
-            AutoDelete = true;
-        }
-
-        public string Name { get; private set; }
-        public string Type { get; set; }
-        public bool Durable { get; set; }
-        public bool AutoDelete { get; set; }
-        public IDictionary Arguments { get; set; }
-
-        /// <summary>
-        /// Declare the exchange
-        /// </summary>
-        /// <param name="model"></param>
-        public void Declare(IModel model)
-        {
-            model.ExchangeDeclare(Name, Type, Durable, AutoDelete, Arguments);
-        }
-    }
-
-    /// <summary>
-    /// This class should have been set to private, in order to keep a stable api, it won't be done immediatly, so don't use it :)
-    /// </summary>
     public abstract class RabbitConnectorCommon :  IDisposable
     {
         public delegate void TemporaryConnectionFailure(Exception e);
         public delegate void PermanentConnectionFailure(BrokerUnreachableException e);
         public delegate void ACLFailure(Exception e);
+
         /// <summary>
         /// Called when another handler throw an exception
         /// </summary>
@@ -95,10 +37,9 @@ namespace RabbitMQHare
         internal IConnection Connection;
         internal IModel Model;
         private readonly IHareSettings _settings;
-
         internal Action<IModel> RedeclareMyTolology;
-
         internal abstract void SpecificRestart(IModel model);
+
         public abstract void Dispose();
 
         [ThreadStatic]
@@ -116,12 +57,12 @@ namespace RabbitMQHare
         public event PermanentConnectionFailure PermanentConnectionFailureHandler;
 
         /// <summary>
-        /// Called when a ACL is thrown
+        /// Called when a ACL exception is thrown
         /// </summary>
         public event ACLFailure ACLFailureHandler;
 
         /// <summary>
-        /// Called when an exception is thrown by another handler, this obviously 
+        /// Called when an exception is thrown by another handler, this obviously should not throw exception (it will crash)
         /// </summary>
         public event EventHandlerFailure EventHandlerFailureHandler;
 
@@ -137,7 +78,7 @@ namespace RabbitMQHare
             int retries = 0;
             var exceptions = new Dictionary<int, Exception>(Math.Max(1, _settings.MaxConnectionRetry));
             var attempts = new Dictionary<int, string>(Math.Max(1, _settings.MaxConnectionRetry));
-            while (!ok && (++retries < _settings.MaxConnectionRetry ||_settings.MaxConnectionRetry == -1))
+            while (!ok && (++retries < _settings.MaxConnectionRetry || _settings.MaxConnectionRetry == -1 || _settings.MaxConnectionRetry == System.Threading.Timeout.Infinite))
             {
                 try
                 {
