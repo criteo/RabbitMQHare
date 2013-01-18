@@ -192,8 +192,10 @@ namespace RabbitMQHare
             ConsumerEventHandler startHandler =null,
             ConsumerEventHandler stopHandler = null,
             ThreadedConsumer.CallbackExceptionEventHandlerWithMessage errorHandler = null,
-            BasicDeliverEventHandler messageHandler = null)
-            : base(settings,temporaryConnectionFailureHandler,permanentConnectionFailureHandler)
+            BasicDeliverEventHandler messageHandler = null,
+            ACLFailure aclFailureHandler =null,
+            EventHandlerFailure eventFailureHandler =null)
+            : base(settings,temporaryConnectionFailureHandler,permanentConnectionFailureHandler, aclFailureHandler, eventFailureHandler)
         {
             _mySettings = settings;
             if (startHandler != null) StartHandler += startHandler;

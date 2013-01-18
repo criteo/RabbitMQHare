@@ -82,6 +82,12 @@ namespace RabbitMQHare
     {
         public delegate void TemporaryConnectionFailure(Exception e);
         public delegate void PermanentConnectionFailure(BrokerUnreachableException e);
+        public delegate void ACLFailure(Exception e);
+        /// <summary>
+        /// Called when another handler throw an exception
+        /// </summary>
+        /// <param name="e"></param>
+        public delegate void EventHandlerFailure(Exception e);
 
         internal IConnection Connection;
         internal IModel Model;
@@ -106,15 +112,31 @@ namespace RabbitMQHare
         /// </summary>
         private event PermanentConnectionFailure PermanentConnectionFailureHandler;
 
+        /// <summary>
+        /// Called when a ACL is thrown
+        /// </summary>
+        private event ACLFailure ACLFailureHandler;
+
+        /// <summary>
+        /// Called when an exception is thrown by another handler, this obviously 
+        /// </summary>
+        private event EventHandlerFailure EventHandlerFailureHandler;
+
+
         internal RabbitConnectorCommon(
             IHareSettings settings,
             TemporaryConnectionFailure temporaryConnectionFailureHandler,
-            PermanentConnectionFailure permanentConnectionFailureHandler
+            PermanentConnectionFailure permanentConnectionFailureHandler,
+            ACLFailure aclFailureHandler,
+            EventHandlerFailure eventHandlerFailure
+
             )
         {
             _settings = settings;
             if (temporaryConnectionFailureHandler != null) TemporaryConnectionFailureHandler += temporaryConnectionFailureHandler;
             if (permanentConnectionFailureHandler != null) PermanentConnectionFailureHandler += permanentConnectionFailureHandler;
+            if (aclFailureHandler != null) ACLFailureHandler += aclFailureHandler;
+            if (eventHandlerFailure != null) EventHandlerFailureHandler += eventHandlerFailure;
             
         }
 
@@ -131,7 +153,7 @@ namespace RabbitMQHare
                     Connection = _settings.ConnectionFactory.CreateConnection();
                     Model = Connection.CreateModel();
                     Connection.AutoClose = true;
-                    RedeclareMyTolology(Model);
+                    TryRedeclareTopology();
                     SpecificRestart(Model);
                     ok = true;
                 }
@@ -139,15 +161,76 @@ namespace RabbitMQHare
                 {
                     exceptions[retries] = e;
                     attempts[retries] = string.Format("{1} : Attempt {0}", retries, DateTime.UtcNow);
-                    if (TemporaryConnectionFailureHandler != null) TemporaryConnectionFailureHandler(e);
+                    OnTemporaryConnectionFailureFailure(e);
                     Thread.Sleep(_settings.IntervalConnectionTries);
                 }
             }
             if (!ok)
             {
                 var e = new BrokerUnreachableException(attempts, exceptions);
-                if (PermanentConnectionFailureHandler != null) this.PermanentConnectionFailureHandler(e);
+                OnPermanentConnectionFailureFailure(e);
             }
+        }
+
+        private void TryRedeclareTopology()
+        {
+            try
+            {
+                RedeclareMyTolology(Model);
+            }
+            catch (RabbitMQ.Client.Exceptions.OperationInterruptedException e)
+            {
+                if (e.ShutdownReason.ReplyCode.Equals(RabbitMQ.Client.Framing.v0_9_1.Constants.AccessRefused))
+                    OnACLFailure(e);
+                throw;
+            }
+        }
+
+
+        protected void OnPermanentConnectionFailureFailure(BrokerUnreachableException e)
+        {
+            if (PermanentConnectionFailureHandler != null)
+                try
+                {
+                    PermanentConnectionFailureHandler(e);
+                }
+                catch (Exception ee)
+                {
+                    OnEventHandlerFailure(ee);
+                }
+        }
+
+        protected void OnTemporaryConnectionFailureFailure(Exception e)
+        {
+            if (TemporaryConnectionFailureHandler != null)
+                try
+                {
+                    TemporaryConnectionFailureHandler(e);
+                }
+                catch (Exception ee)
+                {
+                    OnEventHandlerFailure(ee);
+                }
+        }
+
+        protected void OnACLFailure(Exception e)
+        {
+            if (ACLFailureHandler != null)
+                try
+                {
+                    ACLFailureHandler(e);
+                }
+                catch (Exception ee)
+                {
+                    OnEventHandlerFailure(ee);
+                }
+        }
+
+        protected void OnEventHandlerFailure(Exception e)
+        {
+            if (EventHandlerFailureHandler != null)
+                EventHandlerFailureHandler(e);
+            else throw e;
         }
 
         

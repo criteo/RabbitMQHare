@@ -72,8 +72,15 @@ namespace RabbitMQHare
 
         private void OnNotEnqueuedHandler()
         {
-            var handler = NotEnqueuedHandler;
-            if (handler != null) handler();
+            if (NotEnqueuedHandler != null)
+                try
+                {
+                    NotEnqueuedHandler();
+                }
+                catch (Exception e)
+                {
+                    OnEventHandlerFailure(e);
+                }
         }
 
         public HarePublisherSettings MySettings { get; private set; }
@@ -143,8 +150,10 @@ namespace RabbitMQHare
         private RabbitPublisher(HarePublisherSettings settings,
             TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
             PermanentConnectionFailure permanentConnectionFailureHandler = null,
-            NotEnqueued notEnqueuedHandler = null)
-            : base(settings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler)
+            NotEnqueued notEnqueuedHandler = null,
+            ACLFailure aclFailureHandler = null,
+            EventHandlerFailure eventFailureHandler = null)
+            : base(settings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler, aclFailureHandler,eventFailureHandler)
         {
             if (notEnqueuedHandler != null) NotEnqueuedHandler += notEnqueuedHandler;
 
@@ -204,6 +213,19 @@ namespace RabbitMQHare
                             try
                             {
                                 Model.BasicPublish(_myExchange.Name, routingKey, _props, message);
+                            }
+                            catch (RabbitMQ.Client.Exceptions.AlreadyClosedException e)
+                            {
+                                switch (e.ShutdownReason.ReplyCode)
+                                {
+                                    case RabbitMQ.Client.Framing.v0_9_1.Constants.AccessRefused:
+                                        OnACLFailure(e);
+                                        break;
+                                    default:
+                                        Start();
+                                        break;
+
+                                }
                             }
                             catch
                             {
