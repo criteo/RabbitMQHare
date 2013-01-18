@@ -78,6 +78,9 @@ namespace RabbitMQHare
         }
     }
 
+    /// <summary>
+    /// This class should have been set to private, in order to keep a stable api, it won't be done immediatly, so don't use it :)
+    /// </summary>
     public abstract class RabbitConnectorCommon :  IDisposable
     {
         public delegate void TemporaryConnectionFailure(Exception e);
@@ -105,39 +108,27 @@ namespace RabbitMQHare
         /// <summary>
         /// Called when an exception is thrown when connecting to rabbit. It is called at most [MaxConnectionRetry] times before a more serious BrokerUnreachableException is thrown
         /// </summary>
-        private event TemporaryConnectionFailure TemporaryConnectionFailureHandler;
+        public event TemporaryConnectionFailure TemporaryConnectionFailureHandler;
 
         /// <summary>
         /// Called when too many exceptions ([MaxConnectionRetry]) are thrown when connecting to rabbit.
         /// </summary>
-        private event PermanentConnectionFailure PermanentConnectionFailureHandler;
+        public event PermanentConnectionFailure PermanentConnectionFailureHandler;
 
         /// <summary>
         /// Called when a ACL is thrown
         /// </summary>
-        private event ACLFailure ACLFailureHandler;
+        public event ACLFailure ACLFailureHandler;
 
         /// <summary>
         /// Called when an exception is thrown by another handler, this obviously 
         /// </summary>
-        private event EventHandlerFailure EventHandlerFailureHandler;
+        public event EventHandlerFailure EventHandlerFailureHandler;
 
 
-        internal RabbitConnectorCommon(
-            IHareSettings settings,
-            TemporaryConnectionFailure temporaryConnectionFailureHandler,
-            PermanentConnectionFailure permanentConnectionFailureHandler,
-            ACLFailure aclFailureHandler,
-            EventHandlerFailure eventHandlerFailure
-
-            )
+        internal RabbitConnectorCommon(IHareSettings settings)
         {
             _settings = settings;
-            if (temporaryConnectionFailureHandler != null) TemporaryConnectionFailureHandler += temporaryConnectionFailureHandler;
-            if (permanentConnectionFailureHandler != null) PermanentConnectionFailureHandler += permanentConnectionFailureHandler;
-            if (aclFailureHandler != null) ACLFailureHandler += aclFailureHandler;
-            if (eventHandlerFailure != null) EventHandlerFailureHandler += eventHandlerFailure;
-            
         }
 
         internal void InternalStart()
@@ -189,10 +180,12 @@ namespace RabbitMQHare
 
         protected void OnPermanentConnectionFailureFailure(BrokerUnreachableException e)
         {
-            if (PermanentConnectionFailureHandler != null)
+            var copy = PermanentConnectionFailureHandler; //see http://stackoverflow.com/questions/786383/c-sharp-events-and-thread-safety
+            //this behavior allow thread safety and allow to expose event publicly
+            if (copy != null)
                 try
                 {
-                    PermanentConnectionFailureHandler(e);
+                    copy(e);
                 }
                 catch (Exception ee)
                 {
@@ -202,10 +195,12 @@ namespace RabbitMQHare
 
         protected void OnTemporaryConnectionFailureFailure(Exception e)
         {
-            if (TemporaryConnectionFailureHandler != null)
+            var copy = TemporaryConnectionFailureHandler; //see http://stackoverflow.com/questions/786383/c-sharp-events-and-thread-safety
+            //this behavior allow thread safety and allow to expose event publicly
+            if (copy != null)
                 try
                 {
-                    TemporaryConnectionFailureHandler(e);
+                    copy(e);
                 }
                 catch (Exception ee)
                 {
@@ -215,10 +210,12 @@ namespace RabbitMQHare
 
         protected void OnACLFailure(Exception e)
         {
-            if (ACLFailureHandler != null)
+            var copy = ACLFailureHandler; //see http://stackoverflow.com/questions/786383/c-sharp-events-and-thread-safety
+            //this behavior allow thread safety and allow to expose event publicly
+            if (copy != null)
                 try
                 {
-                    ACLFailureHandler(e);
+                    copy(e);
                 }
                 catch (Exception ee)
                 {
@@ -228,8 +225,10 @@ namespace RabbitMQHare
 
         protected void OnEventHandlerFailure(Exception e)
         {
-            if (EventHandlerFailureHandler != null)
-                EventHandlerFailureHandler(e);
+            var copy = EventHandlerFailureHandler; //see http://stackoverflow.com/questions/786383/c-sharp-events-and-thread-safety
+            //this behavior allow thread safety and allow to expose event publicly
+            if (copy != null)
+                copy(e);
             else throw e;
         }
 

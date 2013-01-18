@@ -68,14 +68,16 @@ namespace RabbitMQHare
         /// <summary>
         /// Called when queue is full and message are not enqueued
         /// </summary>
-        private event NotEnqueued NotEnqueuedHandler;
+        public event NotEnqueued NotEnqueuedHandler;
 
         private void OnNotEnqueuedHandler()
         {
-            if (NotEnqueuedHandler != null)
+            var copy = NotEnqueuedHandler; //see http://stackoverflow.com/questions/786383/c-sharp-events-and-thread-safety
+            //this behavior allow thread safety and allow to expose event publicly
+            if (copy != null)
                 try
                 {
-                    NotEnqueuedHandler();
+                    copy();
                 }
                 catch (Exception e)
                 {
@@ -153,9 +155,14 @@ namespace RabbitMQHare
             NotEnqueued notEnqueuedHandler = null,
             ACLFailure aclFailureHandler = null,
             EventHandlerFailure eventFailureHandler = null)
-            : base(settings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler, aclFailureHandler,eventFailureHandler)
+            : base(settings)
         {
             if (notEnqueuedHandler != null) NotEnqueuedHandler += notEnqueuedHandler;
+
+            if (temporaryConnectionFailureHandler != null) TemporaryConnectionFailureHandler += temporaryConnectionFailureHandler;
+            if (permanentConnectionFailureHandler != null) PermanentConnectionFailureHandler += permanentConnectionFailureHandler;
+            if (aclFailureHandler != null) ACLFailureHandler += aclFailureHandler;
+            if (eventFailureHandler != null) EventHandlerFailureHandler += eventFailureHandler;
 
             cancellation = new CancellationTokenSource();
             send = new Task(() => DequeueSend(cancellation.Token));

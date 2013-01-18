@@ -69,10 +69,30 @@ namespace RabbitMQHare
         private ThreadedConsumer _myConsumer;
         private string _myConsumerTag;
 
-        private event BasicDeliverEventHandler MessageHandler;
-        private event ThreadedConsumer.CallbackExceptionEventHandlerWithMessage ErrorHandler;
-        private event ConsumerEventHandler StartHandler;
-        private event ConsumerEventHandler StopHandler;
+        /// <summary>
+        /// Event handler for messages. If you modify this after Start methed is called, it won't be applied 
+        /// until next restart (connection issue)
+        /// </summary>
+        public event BasicDeliverEventHandler MessageHandler;
+
+        /// <summary>
+        /// Event handler for messages handler failure. If you modify this after Start methed is called, it won't be applied 
+        /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
+        /// </summary>
+        public event ThreadedConsumer.CallbackExceptionEventHandlerWithMessage ErrorHandler;
+
+        /// <summary>
+        /// Handler called at each start (and restart). If you modify this after Start methed is called, it won't be applied 
+        /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
+        /// </summary>
+        public event ConsumerEventHandler StartHandler;
+
+        /// <summary>
+        /// Handler called at each stop. If you modify this after Start methed is called, it won't be applied 
+        /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
+        /// </summary>
+        public event ConsumerEventHandler StopHandler;
+
         private HareConsumerSettings _mySettings;
 
         /// <summary>
@@ -195,13 +215,19 @@ namespace RabbitMQHare
             BasicDeliverEventHandler messageHandler = null,
             ACLFailure aclFailureHandler =null,
             EventHandlerFailure eventFailureHandler =null)
-            : base(settings,temporaryConnectionFailureHandler,permanentConnectionFailureHandler, aclFailureHandler, eventFailureHandler)
+            : base(settings)
         {
             _mySettings = settings;
             if (startHandler != null) StartHandler += startHandler;
             if (stopHandler != null) StopHandler += stopHandler;
             if (errorHandler != null) ErrorHandler += errorHandler;
             if (messageHandler != null) MessageHandler += messageHandler;
+
+            if (temporaryConnectionFailureHandler != null) TemporaryConnectionFailureHandler += temporaryConnectionFailureHandler;
+            if (permanentConnectionFailureHandler != null) PermanentConnectionFailureHandler += permanentConnectionFailureHandler;
+            if (aclFailureHandler != null) ACLFailureHandler += aclFailureHandler;
+            if (eventFailureHandler != null) EventHandlerFailureHandler += eventFailureHandler;
+
         }
 
         internal override void SpecificRestart(IModel model)
