@@ -7,6 +7,9 @@ using RabbitMQ.Client.Events;
 
 namespace RabbitMQHare
 {
+    /// <summary>
+    /// Underlying class for consuming messages
+    /// </summary>
     public class ThreadedConsumer : DefaultBasicConsumer
     {
         /// <summary>

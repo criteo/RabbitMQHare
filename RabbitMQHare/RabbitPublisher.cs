@@ -125,6 +125,7 @@ namespace RabbitMQHare
         /// </summary>
         /// <param name="mySettings"> </param>
         /// <param name="exchange">Exchange you will sent message to. It *won't* be created, you have to create it in the redeclareToplogy parameter</param>
+        /// <param name="redeclareTopology">Lambda called everytime we need to recreate the rabbitmq oblects, it should be idempotent</param>
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange, Action<IModel> redeclareTopology)
             : this(mySettings)
         {
