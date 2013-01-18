@@ -1,8 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using RabbitMQ.Client;
-using System.Collections;
+using RabbitMQ.Client.Exceptions;
 
 namespace RabbitMQHare
 {
@@ -11,12 +12,12 @@ namespace RabbitMQHare
         ConnectionFactory ConnectionFactory { get; set; }
 
         /// <summary>
-        /// Maximum numbers of unsuccessful connection retry. -1 Is infinite
+        /// Maximum numbers of unsuccessful connection retry. -1 is infinite
         /// </summary>
         int MaxConnectionRetry { get; set; }
 
         /// <summary>
-        /// Time between two retries when connecting to rabbitmq. Default is 5 seconds
+        /// Interval between two retries when connecting to rabbitmq. Default is 5 seconds
         /// </summary>
         TimeSpan IntervalConnectionTries { get; set; }
     }
@@ -80,7 +81,7 @@ namespace RabbitMQHare
     public abstract class RabbitConnectorCommon :  IDisposable
     {
         public delegate void TemporaryConnectionFailure(Exception e);
-        public delegate void PermanentConnectionFailure(RabbitMQ.Client.Exceptions.BrokerUnreachableException e);
+        public delegate void PermanentConnectionFailure(BrokerUnreachableException e);
 
         internal IConnection Connection;
         internal IModel Model;
@@ -93,8 +94,7 @@ namespace RabbitMQHare
 
         [ThreadStatic]
         internal static Random r = null;
-        internal static Random random { get { return r ?? (r = new Random()); }
-        }
+        internal static Random random { get { return r ?? (r = new Random()); } }
 
         /// <summary>
         /// Called when an exception is thrown when connecting to rabbit. It is called at most [MaxConnectionRetry] times before a more serious BrokerUnreachableException is thrown
@@ -145,7 +145,7 @@ namespace RabbitMQHare
             }
             if (!ok)
             {
-                var e = new RabbitMQ.Client.Exceptions.BrokerUnreachableException(attempts, exceptions);
+                var e = new BrokerUnreachableException(attempts, exceptions);
                 if (PermanentConnectionFailureHandler != null) this.PermanentConnectionFailureHandler(e);
             }
         }

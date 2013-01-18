@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Threading.Tasks;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using System.Threading.Tasks;
 
 namespace RabbitMQHare
 {
@@ -31,7 +31,7 @@ namespace RabbitMQHare
         public int MaxConnectionRetry { get; set; }
 
         /// <summary>
-        /// Time between two retries when connecting to rabbitmq. Default is 5 seconds
+        /// Interval between two retries when connecting to rabbitmq. Default is 5 seconds
         /// </summary>
         public TimeSpan IntervalConnectionTries { get; set; }
 
@@ -100,8 +100,8 @@ namespace RabbitMQHare
             _myQueue = new RabbitQueue(exchange.Name + "-" + random.Next()) {AutoDelete = true};
             RedeclareMyTolology = m =>
             {
-                m.ExchangeDeclare(exchange.Name, exchange.Type);
-                m.QueueDeclare(_myQueue.Name, _myQueue.Durable, _myQueue.Exclusive, _myQueue.AutoDelete, _myQueue.Arguments);
+                exchange.Declare(m);
+                _myQueue.Declare(m);
                 m.QueueBind(_myQueue.Name, exchange.Name, routingKeytoBind);
             };
         }
@@ -131,7 +131,7 @@ namespace RabbitMQHare
             RedeclareMyTolology = m =>
             {
                 m.ExchangeDeclare(exchange.Name, ExchangeType.Fanout);
-                m.QueueDeclare(_myQueue.Name, _myQueue.Durable, _myQueue.Exclusive, _myQueue.AutoDelete, _myQueue.Arguments);
+                _myQueue.Declare(m);
                 m.QueueBind(_myQueue.Name, exchange.Name, "toto");
             };
         }
@@ -157,7 +157,7 @@ namespace RabbitMQHare
             : this(settings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler, startHandler, stopHandler, errorHandler, messageHandler)
         {
             _myQueue = queue;
-            RedeclareMyTolology = m => m.QueueDeclare(_myQueue.Name, _myQueue.Durable, _myQueue.Exclusive, _myQueue.AutoDelete, _myQueue.Arguments);
+            RedeclareMyTolology = m => _myQueue.Declare(m);
         }
 
         /// <summary>
@@ -183,7 +183,7 @@ namespace RabbitMQHare
             : this(settings,temporaryConnectionFailureHandler, permanentConnectionFailureHandler, startHandler, stopHandler, errorHandler, messageHandler)
         {
             _myQueue = queue;
-            this.RedeclareMyTolology = redeclareTopology;
+            RedeclareMyTolology = redeclareTopology;
         }
 
         private RabbitConsumer(HareConsumerSettings settings,

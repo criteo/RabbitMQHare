@@ -33,7 +33,7 @@ namespace RabbitMQHare
         public int MaxConnectionRetry { get; set; }
 
         /// <summary>
-        /// Time between two retries when connecting to rabbitmq. Default is 5 seconds
+        /// Interval between two retries when connecting to rabbitmq. Default is 5 seconds
         /// </summary>
         public TimeSpan IntervalConnectionTries { get; set; }
 
