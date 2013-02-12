@@ -45,24 +45,37 @@ namespace RabbitMQHare
         /// </summary>
         public TaskScheduler TaskScheduler { get; set; }
 
+
         /// <summary>
-        /// Settings that can work for small, simple use cases
+        /// Default set of settings. You can safely change them for your use case.
         /// </summary>
-        public static readonly HareConsumerSettings DefaultSettings = new HareConsumerSettings
+        /// <returns></returns>
+        public static HareConsumerSettings GetDefaultSettings()
         {
-            ConnectionFactory = new ConnectionFactory() {
-                HostName = "localhost",
-                Port = 5672, 
-                UserName = ConnectionFactory.DefaultUser, 
-                Password = ConnectionFactory.DefaultPass, 
-                VirtualHost = ConnectionFactory.DefaultVHost, 
-                RequestedHeartbeat = 60},
-            MaxConnectionRetry = 5,
-            IntervalConnectionTries = TimeSpan.FromSeconds(5),
-            MaxWorkers = 1,
-            AcknowledgeMessageForMe = true,
-            TaskScheduler = TaskScheduler.Default
-        };
+            return new HareConsumerSettings
+            {
+                ConnectionFactory = new ConnectionFactory()
+                {
+                    HostName = "localhost",
+                    Port = 5672,
+                    UserName = ConnectionFactory.DefaultUser,
+                    Password = ConnectionFactory.DefaultPass,
+                    VirtualHost = ConnectionFactory.DefaultVHost,
+                    RequestedHeartbeat = 60
+                },
+                MaxConnectionRetry = 5,
+                IntervalConnectionTries = TimeSpan.FromSeconds(5),
+                MaxWorkers = 1,
+                AcknowledgeMessageForMe = true,
+                TaskScheduler = TaskScheduler.Default
+            };
+        }
+
+
+        /// <summary>
+        /// Settings that can work for small, simple use cases. If you need to change them, you should use GetDefaultSettings() method.
+        /// </summary>
+        public static readonly HareConsumerSettings DefaultSettings = GetDefaultSettings();
     }
 
 
