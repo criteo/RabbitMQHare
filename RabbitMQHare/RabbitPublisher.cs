@@ -37,18 +37,24 @@ namespace RabbitMQHare
         /// </summary>
         public TimeSpan IntervalConnectionTries { get; set; }
 
-        public static readonly HarePublisherSettings DefaultSettings = new HarePublisherSettings
+        public static HarePublisherSettings GetDefaultSettings()
         {
-            ConnectionFactory = new ConnectionFactory() { HostName = "localhost", Port = 5672, UserName = "guest", Password = "guest", VirtualHost = "/", RequestedHeartbeat = 60 },
-            MaxConnectionRetry = 5,
-            IntervalConnectionTries = TimeSpan.FromSeconds(5),
-            MaxMessageWaitingToBeSent = 10000,
-            ConstructProperties = props =>
+            return new HarePublisherSettings
+            {
+                ConnectionFactory = new ConnectionFactory() { HostName = "localhost", Port = 5672, UserName = "guest", Password = "guest", VirtualHost = "/", RequestedHeartbeat = 60 },
+                MaxConnectionRetry = 5,
+                IntervalConnectionTries = TimeSpan.FromSeconds(5),
+                MaxMessageWaitingToBeSent = 10000,
+                ConstructProperties = props =>
                 {
                     props.ContentType = "text/plain";
                     props.DeliveryMode = 1;
                 },
-        };
+            };
+        }
+
+        [Obsolete("Use GetDefaultSettings instead")]
+        public static readonly HarePublisherSettings DefaultSettings = GetDefaultSettings();
     }
 
     /// <summary>

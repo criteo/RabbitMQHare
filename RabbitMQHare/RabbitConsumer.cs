@@ -47,9 +47,8 @@ namespace RabbitMQHare
 
 
         /// <summary>
-        /// Default set of settings. You can safely change them for your use case.
+        /// Default set of settings.
         /// </summary>
-        /// <returns></returns>
         public static HareConsumerSettings GetDefaultSettings()
         {
             return new HareConsumerSettings
@@ -73,8 +72,9 @@ namespace RabbitMQHare
 
 
         /// <summary>
-        /// Settings that can work for small, simple use cases. If you need to change them, you should use GetDefaultSettings() method.
+        /// Settings that can work for small, simple use cases.
         /// </summary>
+        [Obsolete("Use GetDefaultSettings instead")]
         public static readonly HareConsumerSettings DefaultSettings = GetDefaultSettings();
     }
 
