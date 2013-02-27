@@ -76,8 +76,8 @@ namespace RabbitMQHare
         {
             bool ok = false;
             int retries = 0;
-            var exceptions = new Dictionary<int, Exception>(Math.Max(1, _settings.MaxConnectionRetry));
-            var attempts = new Dictionary<int, string>(Math.Max(1, _settings.MaxConnectionRetry));
+            var exceptions = new Dictionary<AmqpTcpEndpoint, Exception>(1);
+            var attempts = new Dictionary<AmqpTcpEndpoint, int>(1);
             while (!ok && (++retries < _settings.MaxConnectionRetry || _settings.MaxConnectionRetry == -1 || _settings.MaxConnectionRetry == System.Threading.Timeout.Infinite))
             {
                 try
@@ -91,8 +91,11 @@ namespace RabbitMQHare
                 }
                 catch (Exception e)
                 {
-                    exceptions[retries] = e;
-                    attempts[retries] = string.Format("{1} : Attempt {0}", retries, DateTime.UtcNow);
+                    var endpoint = new AmqpTcpEndpoint();
+                    if (_settings.ConnectionFactory != null && _settings.ConnectionFactory.Endpoint != null)
+                        endpoint = _settings.ConnectionFactory.Endpoint;
+                    exceptions[endpoint] = e;
+                    attempts[endpoint] = retries;
                     OnTemporaryConnectionFailureFailure(e);
                     Thread.Sleep(_settings.IntervalConnectionTries);
                 }

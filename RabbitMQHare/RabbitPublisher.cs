@@ -52,9 +52,6 @@ namespace RabbitMQHare
                 },
             };
         }
-
-        [Obsolete("Use GetDefaultSettings instead")]
-        public static readonly HarePublisherSettings DefaultSettings = GetDefaultSettings();
     }
 
     /// <summary>
@@ -149,95 +146,6 @@ namespace RabbitMQHare
 
             _internalQueue = new ConcurrentQueue<KeyValuePair<string, byte[]>>();
         }
-
-        #region deprecated constructors
-        /// <summary>
-        /// Publish to a PUBLIC queue
-        /// </summary>
-        /// <param name="mySettings">Settings used to construct a publisher</param>
-        /// <param name="destinationQueue">public queue you want to connect to</param>
-        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
-        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
-        /// <param name="notEnqueuedHandler">Handler called when messages are not enqueued because queue is full </param>
-        [Obsolete("Use version without optional parameter")]
-        public RabbitPublisher(HarePublisherSettings mySettings, RabbitQueue destinationQueue,
-            TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
-            PermanentConnectionFailure permanentConnectionFailureHandler = null,
-            NotEnqueued notEnqueuedHandler =null)
-            : this(mySettings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler, notEnqueuedHandler)
-        {
-            _myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange") { AutoDelete = true };
-            RedeclareMyTolology = m =>
-            {
-                m.ExchangeDeclare(_myExchange.Name, _myExchange.Type, _myExchange.Durable, _myExchange.AutoDelete, _myExchange.Arguments);
-                m.QueueDeclare(destinationQueue.Name, destinationQueue.Durable, destinationQueue.Exclusive, destinationQueue.AutoDelete, destinationQueue.Arguments);
-                m.QueueBind(destinationQueue.Name, _myExchange.Name, "toto");
-            };
-        }
-
-        /// <summary>
-        /// Publish to a PUBLIC exchange
-        /// </summary>
-        /// <param name="mySettings">Settings used to construct a publisher</param>
-        /// <param name="exchange">public exchange you want to connect to</param>
-        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
-        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
-        /// <param name="notEnqueuedHandler">Handler called when messages are not enqueued because queue is full  </param>
-        [Obsolete("Use version without optional parameter")]
-        public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange,
-            TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
-            PermanentConnectionFailure permanentConnectionFailureHandler = null,
-            NotEnqueued notEnqueuedHandler = null)
-            : this(mySettings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler, notEnqueuedHandler)
-        {
-            _myExchange = exchange;
-            RedeclareMyTolology = m => m.ExchangeDeclare(_myExchange.Name, _myExchange.Type, _myExchange.Durable, _myExchange.AutoDelete, _myExchange.Arguments);
-        }
-
-        /// <summary>
-        /// Raw constructor
-        /// </summary>
-        /// <param name="mySettings"> </param>
-        /// <param name="exchange">Exchange you will sent message to. It won't be created, you have to create it in the redeclareToplogy parameter</param>
-        /// <param name="redeclareTopology">Just create the topology you need</param>
-        /// <param name="temporaryConnectionFailureHandler">Handler called when there is a temporary connection failure</param>
-        /// <param name="permanentConnectionFailureHandler">Handler called when there is a permanent connection failure. When called you can consider your publisher as dead</param>
-        /// <param name="notEnqueuedHandler"> Handler called when messages are not enqueued because queue is full </param>
-        [Obsolete("Use version without optional parameter")]
-        public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange, Action<IModel> redeclareTopology,
-            TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
-            PermanentConnectionFailure permanentConnectionFailureHandler = null,
-            NotEnqueued notEnqueuedHandler = null)
-            : this(mySettings, temporaryConnectionFailureHandler, permanentConnectionFailureHandler, notEnqueuedHandler)
-        {
-            _myExchange = exchange;
-            RedeclareMyTolology = redeclareTopology;
-        }
-
-        [Obsolete("Use version without optional parameter")]
-        private RabbitPublisher(HarePublisherSettings settings,
-            TemporaryConnectionFailure temporaryConnectionFailureHandler = null,
-            PermanentConnectionFailure permanentConnectionFailureHandler = null,
-            NotEnqueued notEnqueuedHandler = null,
-            ACLFailure aclFailureHandler = null,
-            EventHandlerFailure eventFailureHandler = null)
-            : this(settings)
-        {
-            if (notEnqueuedHandler != null) NotEnqueuedHandler += notEnqueuedHandler;
-
-            if (temporaryConnectionFailureHandler != null) TemporaryConnectionFailureHandler += temporaryConnectionFailureHandler;
-            if (permanentConnectionFailureHandler != null) PermanentConnectionFailureHandler += permanentConnectionFailureHandler;
-            if (aclFailureHandler != null) ACLFailureHandler += aclFailureHandler;
-            if (eventFailureHandler != null) EventHandlerFailureHandler += eventFailureHandler;
-
-            cancellation = new CancellationTokenSource();
-            send = new Task(() => DequeueSend(cancellation.Token));
-            Started = false;
-            MySettings = settings;
-
-            _internalQueue = new ConcurrentQueue<KeyValuePair<string, byte[]>>();
-        }
-        #endregion
 
         /// <summary>
         /// Start to publish. This method is NOT thread-safe. Advice is to use it once.
