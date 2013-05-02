@@ -37,6 +37,12 @@ namespace RabbitMQHare
         /// </summary>
         public TimeSpan IntervalConnectionTries { get; set; }
 
+        /// <summary>
+        /// Prefer to send a message twice than loosing it
+        /// Order is not garanteed
+        /// </summary>
+        public bool RequeueMessageAfterFailure { get; set; }
+
         public static HarePublisherSettings GetDefaultSettings()
         {
             return new HarePublisherSettings
@@ -198,6 +204,8 @@ namespace RabbitMQHare
                             }
                             catch (RabbitMQ.Client.Exceptions.AlreadyClosedException e)
                             {
+                                if (MySettings.RequeueMessageAfterFailure)
+                                    _internalQueue.Enqueue(res);
                                 switch (e.ShutdownReason.ReplyCode)
                                 {
                                     case RabbitMQ.Client.Framing.v0_9_1.Constants.AccessRefused:
@@ -211,6 +219,8 @@ namespace RabbitMQHare
                             }
                             catch
                             {
+                                if (MySettings.RequeueMessageAfterFailure)
+                                    _internalQueue.Enqueue(res);
                                 //No need to offer any event handler since reconnection will probably fail at the first time and the standard handlers will be called
                                 Start();
                             }
