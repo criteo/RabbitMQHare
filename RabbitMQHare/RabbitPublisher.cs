@@ -81,6 +81,13 @@ namespace RabbitMQHare
         /// </summary>
         public event NotEnqueued NotEnqueuedHandler;
 
+        public delegate void StartHandler(RabbitPublisher pub);
+        /// <summary>
+        /// Handler called at each start (and restart)
+        /// This is different from StartHandler of consumer, so you can modify this at any time
+        /// </summary>
+        public event StartHandler OnStart;
+
         private void OnNotEnqueuedHandler()
         {
             var copy = NotEnqueuedHandler; //see http://stackoverflow.com/questions/786383/c-sharp-events-and-thread-safety
@@ -89,6 +96,21 @@ namespace RabbitMQHare
                 try
                 {
                     copy();
+                }
+                catch (Exception e)
+                {
+                    OnEventHandlerFailure(e);
+                }
+        }
+
+        private void OnStartHandler()
+        {
+            var copy = OnStart; //see http://stackoverflow.com/questions/786383/c-sharp-events-and-thread-safety
+            //this behavior allow thread safety and allow to expose event publicly
+            if (copy != null)
+                try
+                {
+                    copy(this);
                 }
                 catch (Exception e)
                 {
@@ -166,6 +188,7 @@ namespace RabbitMQHare
                 Started = true;
             }
             //no more modifying after this point
+            OnStartHandler();
         }
 
         /// <summary>
