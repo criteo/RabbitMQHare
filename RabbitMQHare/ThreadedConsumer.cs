@@ -20,12 +20,12 @@ namespace RabbitMQHare
         /// <param name="e">The message so you can ack it if needed.</param>
         public delegate  void CallbackExceptionEventHandlerWithMessage(object sender, CallbackExceptionEventArgs exception, BasicDeliverEventArgs e);
 
-        private readonly Thread _dispatch;
-        private readonly TaskScheduler _scheduler;
-        private readonly CancellationTokenSource _cts;
-        private readonly Queue<BasicDeliverEventArgs> _queue;
-        private bool _queueClosed;
-        private int _taskCount;
+        private readonly Thread dispatch;
+        private readonly TaskScheduler scheduler;
+        private readonly CancellationTokenSource cts;
+        private readonly Queue<BasicDeliverEventArgs> queue;
+        private bool queueClosed;
+        private int taskCount;
 
         /// <summary>
         ///  Maxmimum number of concurrents messages processed at the same time.
@@ -75,33 +75,33 @@ namespace RabbitMQHare
         public ThreadedConsumer(IModel model, ushort maxWorker, bool autoAck, TaskScheduler scheduler)
             : base(model)
         {
-            _scheduler = scheduler;
-            _cts = new CancellationTokenSource();
-            _queue = new Queue<BasicDeliverEventArgs>();
-            _queueClosed = false;
-            _taskCount = 0;
+            this.scheduler = scheduler;
+            cts = new CancellationTokenSource();
+            queue = new Queue<BasicDeliverEventArgs>();
+            queueClosed = false;
+            taskCount = 0;
 
             AutoAck = autoAck;
             ShutdownTimeout = Timeout.Infinite;
             MaxWorker = Math.Min(maxWorker, (ushort)scheduler.MaximumConcurrencyLevel);
             Model.BasicQos(0, MaxWorker, false);
 
-            _dispatch = new Thread(() =>
+            dispatch = new Thread(() =>
             {
-                while (!_cts.IsCancellationRequested)
+                while (!cts.IsCancellationRequested)
                 {
                     BasicDeliverEventArgs e = null;
                     try
                     {
-                        lock (_queue)
+                        lock (queue)
                         {
-                            while (!_cts.IsCancellationRequested && (_queue.Count == 0 || _taskCount == MaxWorker))
+                            while (!cts.IsCancellationRequested && (queue.Count == 0 || taskCount == MaxWorker))
                             {
-                                Monitor.Wait(_queue);
+                                Monitor.Wait(queue);
                             }
-                            if (_queueClosed) break;
-                            e = _queue.Dequeue();
-                            ++_taskCount;
+                            if (queueClosed) break;
+                            e = queue.Dequeue();
+                            ++taskCount;
                         }
 
                         var task = new Task(() =>
@@ -117,15 +117,15 @@ namespace RabbitMQHare
                             }
                             finally
                             {
-                                lock (_queue)
+                                lock (queue)
                                 {
-                                    --_taskCount;
-                                    Monitor.Pulse(_queue);
+                                    --taskCount;
+                                    Monitor.Pulse(queue);
                                 }
                             }
-                        }, _cts.Token);
+                        }, cts.Token);
 
-                        task.Start(_scheduler);
+                        task.Start(this.scheduler);
                     }
                     catch (Exception ex)
                     {
@@ -133,32 +133,32 @@ namespace RabbitMQHare
                     }
                 }
 
-                lock (_queue)
+                lock (queue)
                 {
-                    while (_taskCount > 0) Monitor.Wait(_queue);
+                    while (taskCount > 0) Monitor.Wait(queue);
                 }
             });
-            _dispatch.IsBackground = true;
+            dispatch.IsBackground = true;
         }
 
         public override void OnCancel()
         {
             base.OnCancel();
 
-            _cts.Cancel();
-            lock (_queue)
+            cts.Cancel();
+            lock (queue)
             {
-                _queueClosed = true;
-                Monitor.PulseAll(_queue);
+                queueClosed = true;
+                Monitor.PulseAll(queue);
             }
-            _dispatch.Join(ShutdownTimeout);
+            dispatch.Join(ShutdownTimeout);
         }
 
         public override void HandleBasicConsumeOk(string consumerTag)
         {
             base.HandleBasicConsumeOk(consumerTag);
             if (OnStart != null) OnStart(this, new ConsumerEventArgs(consumerTag));
-            _dispatch.Start();
+            dispatch.Start();
         }
 
         public override void HandleBasicCancelOk(string consumerTag)
@@ -192,11 +192,11 @@ namespace RabbitMQHare
                     Body = body
                 };
 
-            lock (_queue)
+            lock (queue)
             {
-                if (_queueClosed) return;
-                _queue.Enqueue(e);
-                Monitor.Pulse(_queue);
+                if (queueClosed) return;
+                queue.Enqueue(e);
+                Monitor.Pulse(queue);
             }
         }
     }

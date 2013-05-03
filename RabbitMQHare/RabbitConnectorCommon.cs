@@ -36,7 +36,7 @@ namespace RabbitMQHare
 
         internal IConnection Connection;
         internal IModel Model;
-        private readonly IHareSettings _settings;
+        private readonly IHareSettings settings;
         internal Action<IModel> RedeclareMyTolology;
         internal abstract void SpecificRestart(IModel model);
 
@@ -44,7 +44,7 @@ namespace RabbitMQHare
 
         [ThreadStatic]
         internal static Random r = null;
-        internal static Random random { get { return r ?? (r = new Random()); } }
+        internal static Random Random { get { return r ?? (r = new Random()); } }
 
         /// <summary>
         /// Called when an exception is thrown when connecting to rabbit. It is called at most [MaxConnectionRetry] times before a more serious BrokerUnreachableException is thrown
@@ -69,20 +69,20 @@ namespace RabbitMQHare
 
         internal RabbitConnectorCommon(IHareSettings settings)
         {
-            _settings = settings;
+            this.settings = settings;
         }
 
         internal void InternalStart()
         {
-            bool ok = false;
-            int retries = 0;
+            var ok = false;
+            var retries = 0;
             var exceptions = new Dictionary<AmqpTcpEndpoint, Exception>(1);
             var attempts = new Dictionary<AmqpTcpEndpoint, int>(1);
-            while (!ok && (++retries < _settings.MaxConnectionRetry || _settings.MaxConnectionRetry == -1 || _settings.MaxConnectionRetry == System.Threading.Timeout.Infinite))
+            while (!ok && (++retries < settings.MaxConnectionRetry || settings.MaxConnectionRetry == -1 || settings.MaxConnectionRetry == Timeout.Infinite))
             {
                 try
                 {
-                    Connection = _settings.ConnectionFactory.CreateConnection();
+                    Connection = settings.ConnectionFactory.CreateConnection();
                     Model = Connection.CreateModel();
                     Connection.AutoClose = true;
                     TryRedeclareTopology();
@@ -92,12 +92,12 @@ namespace RabbitMQHare
                 catch (Exception e)
                 {
                     var endpoint = new AmqpTcpEndpoint();
-                    if (_settings.ConnectionFactory != null && _settings.ConnectionFactory.Endpoint != null)
-                        endpoint = _settings.ConnectionFactory.Endpoint;
+                    if (settings.ConnectionFactory != null && settings.ConnectionFactory.Endpoint != null)
+                        endpoint = settings.ConnectionFactory.Endpoint;
                     exceptions[endpoint] = e;
                     attempts[endpoint] = retries;
                     OnTemporaryConnectionFailureFailure(e);
-                    Thread.Sleep(_settings.IntervalConnectionTries);
+                    Thread.Sleep(settings.IntervalConnectionTries);
                 }
             }
             if (!ok)
@@ -113,7 +113,7 @@ namespace RabbitMQHare
             {
                 RedeclareMyTolology(Model);
             }
-            catch (RabbitMQ.Client.Exceptions.OperationInterruptedException e)
+            catch (OperationInterruptedException e)
             {
                 if (e.ShutdownReason.ReplyCode.Equals(RabbitMQ.Client.Framing.v0_9_1.Constants.AccessRefused))
                     OnACLFailure(e);

@@ -47,7 +47,7 @@ namespace RabbitMQHare
         {
             return new HarePublisherSettings
             {
-                ConnectionFactory = new ConnectionFactory() { HostName = "localhost", Port = 5672, UserName = "guest", Password = "guest", VirtualHost = "/", RequestedHeartbeat = 60 },
+                ConnectionFactory = new ConnectionFactory { HostName = "localhost", Port = 5672, UserName = "guest", Password = "guest", VirtualHost = "/", RequestedHeartbeat = 60 },
                 MaxConnectionRetry = 5,
                 IntervalConnectionTries = TimeSpan.FromSeconds(5),
                 MaxMessageWaitingToBeSent = 10000,
@@ -63,17 +63,17 @@ namespace RabbitMQHare
     /// <summary>
     /// TODO doc 
     /// </summary>
-    public class RabbitPublisher : RabbitConnectorCommon, IDisposable
+    public class RabbitPublisher : RabbitConnectorCommon
     {
-        private IBasicProperties _props;
-        private readonly ConcurrentQueue<KeyValuePair<string, byte[]>> _internalQueue;
+        private IBasicProperties props;
+        private readonly ConcurrentQueue<KeyValuePair<string, byte[]>> internalQueue;
         private readonly object _lock = new object();
 
-        private readonly RabbitExchange _myExchange;
-        private Task send;
-        private CancellationTokenSource cancellation;
-        private readonly object _token = new object();
-        private readonly object _tokenBlocking = new object();
+        private readonly RabbitExchange myExchange;
+        private readonly Task send;
+        private readonly CancellationTokenSource cancellation;
+        private readonly object token = new object();
+        private readonly object tokenBlocking = new object();
 
         public delegate void NotEnqueued();
         /// <summary>
@@ -130,12 +130,12 @@ namespace RabbitMQHare
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitQueue destinationQueue)
             : this(mySettings)
         {
-            _myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange") { AutoDelete = true };
+            myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange") { AutoDelete = true };
             RedeclareMyTolology = m =>
             {
-                _myExchange.Declare(m);
+                myExchange.Declare(m);
                 destinationQueue.Declare(m);
-                m.QueueBind(destinationQueue.Name, _myExchange.Name, "toto");
+                m.QueueBind(destinationQueue.Name, myExchange.Name, "toto");
             };
         }
 
@@ -147,8 +147,8 @@ namespace RabbitMQHare
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange)
             : this(mySettings)
         {
-            _myExchange = exchange;
-            RedeclareMyTolology = _myExchange.Declare;
+            myExchange = exchange;
+            RedeclareMyTolology = myExchange.Declare;
         }
 
         /// <summary>
@@ -160,7 +160,7 @@ namespace RabbitMQHare
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange, Action<IModel> redeclareTopology)
             : this(mySettings)
         {
-            _myExchange = exchange;
+            myExchange = exchange;
             RedeclareMyTolology = redeclareTopology;
         }
 
@@ -172,7 +172,7 @@ namespace RabbitMQHare
             Started = false;
             MySettings = settings;
 
-            _internalQueue = new ConcurrentQueue<KeyValuePair<string, byte[]>>();
+            internalQueue = new ConcurrentQueue<KeyValuePair<string, byte[]>>();
         }
 
         /// <summary>
@@ -196,8 +196,8 @@ namespace RabbitMQHare
         /// </summary>
         internal override void SpecificRestart(IModel model)
         {
-            _props = model.CreateBasicProperties();
-            MySettings.ConstructProperties(_props);
+            props = model.CreateBasicProperties();
+            MySettings.ConstructProperties(props);
         }
 
         /// <summary>
@@ -209,26 +209,26 @@ namespace RabbitMQHare
             while (!token.IsCancellationRequested)
             {
                 KeyValuePair<string, byte[]> res;
-                if (_internalQueue.TryPeek(out res))
+                if (internalQueue.TryPeek(out res))
                 {
                     lock (_lock)
                     {
-                        while (_internalQueue.TryDequeue(out res))
+                        while (internalQueue.TryDequeue(out res))
                         {
-                            lock (_tokenBlocking)
+                            lock (tokenBlocking)
                             {
-                                Monitor.Pulse(_tokenBlocking);
+                                Monitor.Pulse(tokenBlocking);
                             }
                             string routingKey = res.Key;
                             byte[] message = res.Value;
                             try
                             {
-                                Model.BasicPublish(_myExchange.Name, routingKey, _props, message);
+                                Model.BasicPublish(myExchange.Name, routingKey, props, message);
                             }
                             catch (RabbitMQ.Client.Exceptions.AlreadyClosedException e)
                             {
                                 if (MySettings.RequeueMessageAfterFailure)
-                                    _internalQueue.Enqueue(res);
+                                    internalQueue.Enqueue(res);
                                 switch (e.ShutdownReason.ReplyCode)
                                 {
                                     case RabbitMQ.Client.Framing.v0_9_1.Constants.AccessRefused:
@@ -243,7 +243,7 @@ namespace RabbitMQHare
                             catch
                             {
                                 if (MySettings.RequeueMessageAfterFailure)
-                                    _internalQueue.Enqueue(res);
+                                    internalQueue.Enqueue(res);
                                 //No need to offer any event handler since reconnection will probably fail at the first time and the standard handlers will be called
                                 Start();
                             }
@@ -252,9 +252,9 @@ namespace RabbitMQHare
                 }
                 else
                 {
-                    lock (_token)
+                    lock (this.token)
                     {
-                        Monitor.Wait(_token);
+                        Monitor.Wait(this.token);
                     }
                 }
             }
@@ -268,15 +268,15 @@ namespace RabbitMQHare
         /// <returns>false if the message was droppped instead of added to the queue</returns>
         public bool Publish(string routingKey, byte[] message)
         {
-            if (_internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
+            if (internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
             {
                 OnNotEnqueuedHandler();
                 return false;
             }
-            _internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
-            lock (_token)
+            internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
+            lock (token)
             {
-                Monitor.Pulse(_token);
+                Monitor.Pulse(token);
             }
             return true;
         }
@@ -288,18 +288,18 @@ namespace RabbitMQHare
         /// <param name="message">the message you want to send</param>
         public void BlockingPublish(string routingKey, byte[] message)
         {
-            if (_internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
+            if (internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
             {
-                lock (_tokenBlocking)
+                lock (tokenBlocking)
                 {
                     //TODO : instead of being unblocked by each dequeue, add a low watermark
-                    Monitor.Wait(_tokenBlocking);
+                    Monitor.Wait(tokenBlocking);
                 }
             }
-            _internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
-            lock (_token)
+            internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
+            lock (token)
             {
-                Monitor.Pulse(_token);
+                Monitor.Pulse(token);
             }
         }
 

@@ -53,8 +53,8 @@ namespace RabbitMQHare
         {
             return new HareConsumerSettings
             {
-                ConnectionFactory = new ConnectionFactory()
-                {
+                ConnectionFactory = new ConnectionFactory
+                    {
                     HostName = "localhost",
                     Port = 5672,
                     UserName = ConnectionFactory.DefaultUser,
@@ -74,9 +74,9 @@ namespace RabbitMQHare
 
     public class RabbitConsumer : RabbitConnectorCommon
     {
-        private readonly RabbitQueue _myQueue;
-        private ThreadedConsumer _myConsumer;
-        private string _myConsumerTag;
+        private readonly RabbitQueue myQueue;
+        private ThreadedConsumer myConsumer;
+        private string myConsumerTag;
 
         /// <summary>
         /// Event handler for messages. If you modify this after Start methed is called, it won't be applied 
@@ -107,7 +107,7 @@ namespace RabbitMQHare
         /// </summary>
         public event ConsumerEventHandler StopHandler;
 
-        private HareConsumerSettings _mySettings;
+        private HareConsumerSettings mySettings;
 
         /// <summary>
         /// Create a rabbitconsumer which will consume message from a PUBLIC exchange. This exchange is supposed to be direct/fanout (otherwise use the raw constructor)
@@ -117,12 +117,12 @@ namespace RabbitMQHare
         public RabbitConsumer(HareConsumerSettings settings, RabbitExchange exchange)
             : this(settings)
         {
-            _myQueue = new RabbitQueue(exchange.Name + "-" + random.Next()) { AutoDelete = true };
+            myQueue = new RabbitQueue(exchange.Name + "-" + Random.Next()) { AutoDelete = true };
             RedeclareMyTolology = m =>
             {
                 exchange.Declare(m);
-                _myQueue.Declare(m);
-                m.QueueBind(_myQueue.Name, exchange.Name, "toto");
+                myQueue.Declare(m);
+                m.QueueBind(myQueue.Name, exchange.Name, "toto");
             };
         }
 
@@ -134,8 +134,8 @@ namespace RabbitMQHare
         public RabbitConsumer(HareConsumerSettings settings, RabbitQueue queue)
             : this(settings)
         {
-            _myQueue = queue;
-            RedeclareMyTolology = _myQueue.Declare;
+            myQueue = queue;
+            RedeclareMyTolology = myQueue.Declare;
         }
 
         /// <summary>
@@ -147,28 +147,28 @@ namespace RabbitMQHare
         public RabbitConsumer(HareConsumerSettings settings, RabbitQueue queue, Action<IModel> redeclareTopology)
             : this(settings)
         {
-            _myQueue = queue;
+            myQueue = queue;
             RedeclareMyTolology = redeclareTopology;
         }
 
         private RabbitConsumer(HareConsumerSettings settings)
             : base(settings)
         {
-            _mySettings = settings;
+            mySettings = settings;
         }
 
         internal override void SpecificRestart(IModel model)
         {
-            _myConsumer = new ThreadedConsumer(model, (ushort)_mySettings.MaxWorkers, _mySettings.AcknowledgeMessageForMe, _mySettings.TaskScheduler ?? TaskScheduler.Default);
-            if (_mySettings.CancelationTime.HasValue)
-                _myConsumer.ShutdownTimeout = (int)Math.Min(_mySettings.CancelationTime.Value.TotalMilliseconds, int.MaxValue);
-            _myConsumer.OnStart += StartHandler;
-            _myConsumer.OnStop += StopHandler;
-            _myConsumer.OnShutdown += GetShutdownHandler(); //automatically restart a new consumer in case of failure
-            _myConsumer.OnDelete += GetDeleteHandler(); //automatically restart a new consumer in case of failure
-            _myConsumer.OnError += ErrorHandler;
+            myConsumer = new ThreadedConsumer(model, (ushort)mySettings.MaxWorkers, mySettings.AcknowledgeMessageForMe, mySettings.TaskScheduler ?? TaskScheduler.Default);
+            if (mySettings.CancelationTime.HasValue)
+                myConsumer.ShutdownTimeout = (int)Math.Min(mySettings.CancelationTime.Value.TotalMilliseconds, int.MaxValue);
+            myConsumer.OnStart += StartHandler;
+            myConsumer.OnStop += StopHandler;
+            myConsumer.OnShutdown += GetShutdownHandler(); //automatically restart a new consumer in case of failure
+            myConsumer.OnDelete += GetDeleteHandler(); //automatically restart a new consumer in case of failure
+            myConsumer.OnError += ErrorHandler;
 
-            _myConsumer.OnMessage += MessageHandler;
+            myConsumer.OnMessage += MessageHandler;
         }
 
         /// <summary>
@@ -178,7 +178,7 @@ namespace RabbitMQHare
         {
             InternalStart();
             // The false for noHack is mandatory. Otherwise it will simply dequeue messages all the time.
-            _myConsumerTag = Model.BasicConsume(_myQueue.Name, false, _myConsumer);
+            myConsumerTag = Model.BasicConsume(myQueue.Name, false, myConsumer);
         }
 
         public ConsumerShutdownEventHandler GetShutdownHandler()
@@ -199,8 +199,8 @@ namespace RabbitMQHare
 
         public override void Dispose()
         {
-            if (_myConsumerTag != null)
-                Model.BasicCancel(_myConsumerTag);
+            if (myConsumerTag != null)
+                Model.BasicCancel(myConsumerTag);
             Model.Close();
         }
     }
