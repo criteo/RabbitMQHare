@@ -59,6 +59,7 @@
     <Compile Include="RabbitExchange.cs" />
     <Compile Include="RabbitPublisher.cs" />
     <Compile Include="RabbitQueue.cs" />
+    <Compile Include="SyncConsumer.cs" />
     <Compile Include="ThreadedConsumer.cs" />
   </ItemGroup>
   <ItemGroup>
