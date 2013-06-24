@@ -45,6 +45,11 @@ namespace RabbitMQHare
         /// </summary>
         public TaskScheduler TaskScheduler { get; set; }
 
+        /// <summary>
+        /// When false (the default), uses the task scheduler to process messages.
+        /// When true, process each message synchronously before fetching the next one.
+        /// </summary>
+        public bool HandleMessagesSynchronously { get; set; }
 
         /// <summary>
         /// Default set of settings.
@@ -55,18 +60,19 @@ namespace RabbitMQHare
             {
                 ConnectionFactory = new ConnectionFactory
                     {
-                    HostName = "localhost",
-                    Port = 5672,
-                    UserName = ConnectionFactory.DefaultUser,
-                    Password = ConnectionFactory.DefaultPass,
-                    VirtualHost = ConnectionFactory.DefaultVHost,
-                    RequestedHeartbeat = 60
-                },
+                        HostName = "localhost",
+                        Port = 5672,
+                        UserName = ConnectionFactory.DefaultUser,
+                        Password = ConnectionFactory.DefaultPass,
+                        VirtualHost = ConnectionFactory.DefaultVHost,
+                        RequestedHeartbeat = 60
+                    },
                 MaxConnectionRetry = 5,
                 IntervalConnectionTries = TimeSpan.FromSeconds(5),
                 MaxWorkers = 1,
                 AcknowledgeMessageForMe = true,
-                TaskScheduler = TaskScheduler.Default
+                TaskScheduler = TaskScheduler.Default,
+                HandleMessagesSynchronously = false
             };
         }
     }
@@ -75,7 +81,7 @@ namespace RabbitMQHare
     public class RabbitConsumer : RabbitConnectorCommon
     {
         private readonly RabbitQueue myQueue;
-        private ThreadedConsumer myConsumer;
+        private BaseConsumer myConsumer;
         private string myConsumerTag;
 
         /// <summary>
@@ -157,9 +163,19 @@ namespace RabbitMQHare
             mySettings = settings;
         }
 
+        internal BaseConsumer CreateConsumer(IModel model)
+        {
+            if (mySettings.HandleMessagesSynchronously)
+            {
+                return new SyncConsumer(model, mySettings.AcknowledgeMessageForMe);
+            }
+            return new ThreadedConsumer(model, (ushort)mySettings.MaxWorkers, mySettings.AcknowledgeMessageForMe,
+                mySettings.TaskScheduler ?? TaskScheduler.Default);
+        }
+
         internal override void SpecificRestart(IModel model)
         {
-            myConsumer = new ThreadedConsumer(model, (ushort)mySettings.MaxWorkers, mySettings.AcknowledgeMessageForMe, mySettings.TaskScheduler ?? TaskScheduler.Default);
+            myConsumer = CreateConsumer(model);
             if (mySettings.CancelationTime.HasValue)
                 myConsumer.ShutdownTimeout = (int)Math.Min(mySettings.CancelationTime.Value.TotalMilliseconds, int.MaxValue);
             myConsumer.OnStart += StartHandler;
