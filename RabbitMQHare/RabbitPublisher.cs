@@ -131,7 +131,7 @@ namespace RabbitMQHare
             : this(mySettings)
         {
             myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange") { AutoDelete = true };
-            RedeclareMyTolology = m =>
+            RedeclareMyTopology = m =>
             {
                 myExchange.Declare(m);
                 destinationQueue.Declare(m);
@@ -148,7 +148,7 @@ namespace RabbitMQHare
             : this(mySettings)
         {
             myExchange = exchange;
-            RedeclareMyTolology = myExchange.Declare;
+            RedeclareMyTopology = myExchange.Declare;
         }
 
         /// <summary>
@@ -161,7 +161,7 @@ namespace RabbitMQHare
             : this(mySettings)
         {
             myExchange = exchange;
-            RedeclareMyTolology = redeclareTopology;
+            RedeclareMyTopology = redeclareTopology;
         }
 
         private RabbitPublisher(HarePublisherSettings settings)
@@ -247,7 +247,7 @@ namespace RabbitMQHare
                                 //No need to offer any event handler since reconnection will probably fail at the first time and the standard handlers will be called
                                 Start();
                             }
-                        } 
+                        }
                     }
                 }
                 else

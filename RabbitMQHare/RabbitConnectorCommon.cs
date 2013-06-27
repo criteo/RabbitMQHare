@@ -22,7 +22,7 @@ namespace RabbitMQHare
         TimeSpan IntervalConnectionTries { get; set; }
     }
 
-    public abstract class RabbitConnectorCommon :  IDisposable
+    public abstract class RabbitConnectorCommon : IDisposable
     {
         public delegate void TemporaryConnectionFailure(Exception e);
         public delegate void PermanentConnectionFailure(BrokerUnreachableException e);
@@ -37,7 +37,7 @@ namespace RabbitMQHare
         internal IConnection Connection;
         internal IModel Model;
         private readonly IHareSettings settings;
-        internal Action<IModel> RedeclareMyTolology;
+        internal Action<IModel> RedeclareMyTopology;
         internal abstract void SpecificRestart(IModel model);
 
         public abstract void Dispose();
@@ -111,7 +111,7 @@ namespace RabbitMQHare
         {
             try
             {
-                RedeclareMyTolology(Model);
+                RedeclareMyTopology(Model);
             }
             catch (OperationInterruptedException e)
             {
@@ -176,6 +176,6 @@ namespace RabbitMQHare
             else throw e;
         }
 
-        
+
     }
 }

@@ -124,7 +124,7 @@ namespace RabbitMQHare
             : this(settings)
         {
             myQueue = new RabbitQueue(exchange.Name + "-" + Random.Next()) { AutoDelete = true };
-            RedeclareMyTolology = m =>
+            RedeclareMyTopology = m =>
             {
                 exchange.Declare(m);
                 myQueue.Declare(m);
@@ -141,7 +141,7 @@ namespace RabbitMQHare
             : this(settings)
         {
             myQueue = queue;
-            RedeclareMyTolology = myQueue.Declare;
+            RedeclareMyTopology = myQueue.Declare;
         }
 
         /// <summary>
@@ -154,7 +154,7 @@ namespace RabbitMQHare
             : this(settings)
         {
             myQueue = queue;
-            RedeclareMyTolology = redeclareTopology;
+            RedeclareMyTopology = redeclareTopology;
         }
 
         private RabbitConsumer(HareConsumerSettings settings)
