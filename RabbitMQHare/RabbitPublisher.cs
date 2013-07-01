@@ -307,7 +307,10 @@ namespace RabbitMQHare
         {
             cancellation.Cancel();
             Monitor.TryEnter(_lock, TimeSpan.FromSeconds(30));
-            Model.Dispose();
+            if (Model != null)
+            {
+                Model.Dispose();
+            }
         }
 
 

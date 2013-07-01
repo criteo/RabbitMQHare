@@ -217,7 +217,10 @@ namespace RabbitMQHare
         {
             if (myConsumerTag != null)
                 Model.BasicCancel(myConsumerTag);
-            Model.Close();
+            if (Model != null)
+            {
+                Model.Close();
+            }
         }
     }
 }
