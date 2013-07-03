@@ -23,6 +23,7 @@ namespace RabbitMQHare
             try
             {
                 DispatchMessage(e);
+                if (AutoAck) Model.BasicAck(e.DeliveryTag, false);
             }
             catch (Exception exception)
             {
