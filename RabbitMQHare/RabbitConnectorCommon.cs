@@ -36,15 +36,14 @@ namespace RabbitMQHare
 
         internal IConnection Connection;
         internal IModel Model;
-        private readonly IHareSettings settings;
+        private readonly IHareSettings _settings;
         internal Action<IModel> RedeclareMyTopology;
         internal abstract void SpecificRestart(IModel model);
 
         public abstract void Dispose();
 
         [ThreadStatic]
-        internal static Random r = null;
-        internal static Random Random { get { return r ?? (r = new Random()); } }
+        protected static Random _random = new Random();
 
         /// <summary>
         /// Called when an exception is thrown when connecting to rabbit. It is called at most [MaxConnectionRetry] times before a more serious BrokerUnreachableException is thrown
@@ -69,7 +68,7 @@ namespace RabbitMQHare
 
         internal RabbitConnectorCommon(IHareSettings settings)
         {
-            this.settings = settings;
+            _settings = settings;
         }
 
         internal void InternalStart()
@@ -78,11 +77,11 @@ namespace RabbitMQHare
             var retries = 0;
             var exceptions = new Dictionary<AmqpTcpEndpoint, Exception>(1);
             var attempts = new Dictionary<AmqpTcpEndpoint, int>(1);
-            while (!ok && (++retries < settings.MaxConnectionRetry || settings.MaxConnectionRetry == -1 || settings.MaxConnectionRetry == Timeout.Infinite))
+            while (!ok && (++retries < _settings.MaxConnectionRetry || _settings.MaxConnectionRetry == -1 || _settings.MaxConnectionRetry == Timeout.Infinite))
             {
                 try
                 {
-                    Connection = settings.ConnectionFactory.CreateConnection();
+                    Connection = _settings.ConnectionFactory.CreateConnection();
                     Model = Connection.CreateModel();
                     Connection.AutoClose = true;
                     TryRedeclareTopology();
@@ -92,12 +91,12 @@ namespace RabbitMQHare
                 catch (Exception e)
                 {
                     var endpoint = new AmqpTcpEndpoint();
-                    if (settings.ConnectionFactory != null && settings.ConnectionFactory.Endpoint != null)
-                        endpoint = settings.ConnectionFactory.Endpoint;
+                    if (_settings.ConnectionFactory != null && _settings.ConnectionFactory.Endpoint != null)
+                        endpoint = _settings.ConnectionFactory.Endpoint;
                     exceptions[endpoint] = e;
                     attempts[endpoint] = retries;
                     OnTemporaryConnectionFailureFailure(e);
-                    Thread.Sleep(settings.IntervalConnectionTries);
+                    Thread.Sleep(_settings.IntervalConnectionTries);
                 }
             }
             if (!ok)

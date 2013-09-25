@@ -65,15 +65,15 @@ namespace RabbitMQHare
     /// </summary>
     public class RabbitPublisher : RabbitConnectorCommon
     {
-        private IBasicProperties props;
-        private readonly ConcurrentQueue<KeyValuePair<string, byte[]>> internalQueue;
+        private IBasicProperties _props;
+        private readonly ConcurrentQueue<KeyValuePair<string, byte[]>> _internalQueue;
         private readonly object _lock = new object();
 
-        private readonly RabbitExchange myExchange;
-        private readonly Task send;
-        private readonly CancellationTokenSource cancellation;
-        private readonly object token = new object();
-        private readonly object tokenBlocking = new object();
+        private readonly RabbitExchange _myExchange;
+        private readonly Task _send;
+        private readonly CancellationTokenSource _cancellation;
+        private readonly object _token = new object();
+        private readonly object _tokenBlocking = new object();
 
         public delegate void NotEnqueued();
         /// <summary>
@@ -130,12 +130,12 @@ namespace RabbitMQHare
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitQueue destinationQueue)
             : this(mySettings)
         {
-            myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange") { AutoDelete = true };
+            _myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange") { AutoDelete = true };
             RedeclareMyTopology = m =>
             {
-                myExchange.Declare(m);
+                _myExchange.Declare(m);
                 destinationQueue.Declare(m);
-                m.QueueBind(destinationQueue.Name, myExchange.Name, "toto");
+                m.QueueBind(destinationQueue.Name, _myExchange.Name, "toto");
             };
         }
 
@@ -147,8 +147,8 @@ namespace RabbitMQHare
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange)
             : this(mySettings)
         {
-            myExchange = exchange;
-            RedeclareMyTopology = myExchange.Declare;
+            _myExchange = exchange;
+            RedeclareMyTopology = _myExchange.Declare;
         }
 
         /// <summary>
@@ -160,19 +160,19 @@ namespace RabbitMQHare
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitExchange exchange, Action<IModel> redeclareTopology)
             : this(mySettings)
         {
-            myExchange = exchange;
+            _myExchange = exchange;
             RedeclareMyTopology = redeclareTopology;
         }
 
         private RabbitPublisher(HarePublisherSettings settings)
             : base(settings)
         {
-            cancellation = new CancellationTokenSource();
-            send = new Task(() => DequeueSend(cancellation.Token));
+            _cancellation = new CancellationTokenSource();
+            _send = new Task(() => DequeueSend(_cancellation.Token));
             Started = false;
             MySettings = settings;
 
-            internalQueue = new ConcurrentQueue<KeyValuePair<string, byte[]>>();
+            _internalQueue = new ConcurrentQueue<KeyValuePair<string, byte[]>>();
         }
 
         /// <summary>
@@ -184,7 +184,7 @@ namespace RabbitMQHare
 
             if (!Started)
             {
-                send.Start();
+                _send.Start();
                 Started = true;
             }
             //no more modifying after this point
@@ -196,8 +196,8 @@ namespace RabbitMQHare
         /// </summary>
         internal override void SpecificRestart(IModel model)
         {
-            props = model.CreateBasicProperties();
-            MySettings.ConstructProperties(props);
+            _props = model.CreateBasicProperties();
+            MySettings.ConstructProperties(_props);
         }
 
         /// <summary>
@@ -209,26 +209,26 @@ namespace RabbitMQHare
             while (!token.IsCancellationRequested)
             {
                 KeyValuePair<string, byte[]> res;
-                if (internalQueue.TryPeek(out res))
+                if (_internalQueue.TryPeek(out res))
                 {
                     lock (_lock)
                     {
-                        while (internalQueue.TryDequeue(out res))
+                        while (_internalQueue.TryDequeue(out res))
                         {
-                            lock (tokenBlocking)
+                            lock (_tokenBlocking)
                             {
-                                Monitor.Pulse(tokenBlocking);
+                                Monitor.Pulse(_tokenBlocking);
                             }
                             string routingKey = res.Key;
                             byte[] message = res.Value;
                             try
                             {
-                                Model.BasicPublish(myExchange.Name, routingKey, props, message);
+                                Model.BasicPublish(_myExchange.Name, routingKey, _props, message);
                             }
                             catch (RabbitMQ.Client.Exceptions.AlreadyClosedException e)
                             {
                                 if (MySettings.RequeueMessageAfterFailure)
-                                    internalQueue.Enqueue(res);
+                                    _internalQueue.Enqueue(res);
                                 switch (e.ShutdownReason.ReplyCode)
                                 {
                                     case RabbitMQ.Client.Framing.v0_9_1.Constants.AccessRefused:
@@ -243,7 +243,7 @@ namespace RabbitMQHare
                             catch
                             {
                                 if (MySettings.RequeueMessageAfterFailure)
-                                    internalQueue.Enqueue(res);
+                                    _internalQueue.Enqueue(res);
                                 //No need to offer any event handler since reconnection will probably fail at the first time and the standard handlers will be called
                                 Start();
                             }
@@ -252,9 +252,9 @@ namespace RabbitMQHare
                 }
                 else
                 {
-                    lock (this.token)
+                    lock (_token)
                     {
-                        Monitor.Wait(this.token);
+                        Monitor.Wait(_token);
                     }
                 }
             }
@@ -268,15 +268,15 @@ namespace RabbitMQHare
         /// <returns>false if the message was droppped instead of added to the queue</returns>
         public bool Publish(string routingKey, byte[] message)
         {
-            if (internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
+            if (_internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
             {
                 OnNotEnqueuedHandler();
                 return false;
             }
-            internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
-            lock (token)
+            _internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
+            lock (_token)
             {
-                Monitor.Pulse(token);
+                Monitor.Pulse(_token);
             }
             return true;
         }
@@ -288,24 +288,24 @@ namespace RabbitMQHare
         /// <param name="message">the message you want to send</param>
         public void BlockingPublish(string routingKey, byte[] message)
         {
-            if (internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
+            if (_internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
             {
-                lock (tokenBlocking)
+                lock (_tokenBlocking)
                 {
                     //TODO : instead of being unblocked by each dequeue, add a low watermark
-                    Monitor.Wait(tokenBlocking);
+                    Monitor.Wait(_tokenBlocking);
                 }
             }
-            internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
-            lock (token)
+            _internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
+            lock (_token)
             {
-                Monitor.Pulse(token);
+                Monitor.Pulse(_token);
             }
         }
 
         public override void Dispose()
         {
-            cancellation.Cancel();
+            _cancellation.Cancel();
             Monitor.TryEnter(_lock, TimeSpan.FromSeconds(30));
             if (Model != null)
             {

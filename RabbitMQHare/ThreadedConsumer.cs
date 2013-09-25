@@ -92,8 +92,7 @@ namespace RabbitMQHare
                 {
                     while (_taskCount > 0) Monitor.Wait(_queue);
                 }
-            });
-            _dispatch.IsBackground = true;
+            }) {IsBackground = true};
         }
 
         public override void OnCancel()

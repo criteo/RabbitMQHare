@@ -82,10 +82,9 @@ namespace RabbitMQHare
 
     public class RabbitConsumer : RabbitConnectorCommon
     {
-        private static Random random = new Random();
-        private readonly RabbitQueue myQueue;
-        private BaseConsumer myConsumer;
-        private string myConsumerTag;
+        private readonly RabbitQueue _myQueue;
+        private BaseConsumer _myConsumer;
+        private string _myConsumerTag;
 
         /// <summary>
         /// Event handler for messages. If you modify this after Start methed is called, it won't be applied 
@@ -116,7 +115,7 @@ namespace RabbitMQHare
         /// </summary>
         public event ConsumerEventHandler StopHandler;
 
-        private HareConsumerSettings mySettings;
+        private HareConsumerSettings _mySettings;
 
         /// <summary>
         /// Create a rabbitconsumer which will consume message from a PUBLIC exchange. This exchange is supposed to be direct/fanout (otherwise use the raw constructor)
@@ -126,12 +125,12 @@ namespace RabbitMQHare
         public RabbitConsumer(HareConsumerSettings settings, RabbitExchange exchange)
             : this(settings)
         {
-            myQueue = new RabbitQueue(exchange.Name + "-" + Random.Next()) { AutoDelete = true };
+            _myQueue = new RabbitQueue(exchange.Name + "-" + _random.Next()) { AutoDelete = true };
             RedeclareMyTopology = m =>
             {
                 exchange.Declare(m);
-                myQueue.Declare(m);
-                m.QueueBind(myQueue.Name, exchange.Name, "toto");
+                _myQueue.Declare(m);
+                m.QueueBind(_myQueue.Name, exchange.Name, "toto");
             };
         }
 
@@ -143,8 +142,8 @@ namespace RabbitMQHare
         public RabbitConsumer(HareConsumerSettings settings, RabbitQueue queue)
             : this(settings)
         {
-            myQueue = queue;
-            RedeclareMyTopology = myQueue.Declare;
+            _myQueue = queue;
+            RedeclareMyTopology = _myQueue.Declare;
         }
 
         /// <summary>
@@ -156,39 +155,39 @@ namespace RabbitMQHare
         public RabbitConsumer(HareConsumerSettings settings, RabbitQueue queue, Action<IModel> redeclareTopology)
             : this(settings)
         {
-            myQueue = queue;
+            _myQueue = queue;
             RedeclareMyTopology = redeclareTopology;
         }
 
         private RabbitConsumer(HareConsumerSettings settings)
             : base(settings)
         {
-            mySettings = settings;
-            myConsumerTag = GetUniqueName();
+            _mySettings = settings;
+            _myConsumerTag = GetUniqueName();
         }
 
         internal BaseConsumer CreateConsumer(IModel model)
         {
-            if (mySettings.HandleMessagesSynchronously)
+            if (_mySettings.HandleMessagesSynchronously)
             {
-                return new SyncConsumer(model, mySettings.AcknowledgeMessageForMe);
+                return new SyncConsumer(model, _mySettings.AcknowledgeMessageForMe);
             }
-            return new ThreadedConsumer(model, (ushort)mySettings.MaxWorkers, mySettings.AcknowledgeMessageForMe,
-                mySettings.TaskScheduler ?? TaskScheduler.Default);
+            return new ThreadedConsumer(model, (ushort)_mySettings.MaxWorkers, _mySettings.AcknowledgeMessageForMe,
+                _mySettings.TaskScheduler ?? TaskScheduler.Default);
         }
 
         internal override void SpecificRestart(IModel model)
         {
-            myConsumer = CreateConsumer(model);
-            if (mySettings.CancelationTime.HasValue)
-                myConsumer.ShutdownTimeout = (int)Math.Min(mySettings.CancelationTime.Value.TotalMilliseconds, int.MaxValue);
-            myConsumer.OnStart += StartHandler;
-            myConsumer.OnStop += StopHandler;
-            myConsumer.OnShutdown += GetShutdownHandler(); //automatically restart a new consumer in case of failure
-            myConsumer.OnDelete += GetDeleteHandler(); //automatically restart a new consumer in case of failure
-            myConsumer.OnError += ErrorHandler;
+            _myConsumer = CreateConsumer(model);
+            if (_mySettings.CancelationTime.HasValue)
+                _myConsumer.ShutdownTimeout = (int)Math.Min(_mySettings.CancelationTime.Value.TotalMilliseconds, int.MaxValue);
+            _myConsumer.OnStart += StartHandler;
+            _myConsumer.OnStop += StopHandler;
+            _myConsumer.OnShutdown += GetShutdownHandler(); //automatically restart a new consumer in case of failure
+            _myConsumer.OnDelete += GetDeleteHandler(); //automatically restart a new consumer in case of failure
+            _myConsumer.OnError += ErrorHandler;
 
-            myConsumer.OnMessage += MessageHandler;
+            _myConsumer.OnMessage += MessageHandler;
         }
 
         /// <summary>
@@ -198,10 +197,10 @@ namespace RabbitMQHare
         {
             InternalStart();
             // The false for noHack is mandatory. Otherwise it will simply dequeue messages all the time.
-            if (myConsumerTag != null)
-                Model.BasicConsume(myQueue.Name, false, myConsumerTag, myConsumer);
+            if (_myConsumerTag != null)
+                Model.BasicConsume(_myQueue.Name, false, _myConsumerTag, _myConsumer);
             else
-                myConsumerTag = Model.BasicConsume(myQueue.Name, false, myConsumer);
+                _myConsumerTag = Model.BasicConsume(_myQueue.Name, false, _myConsumer);
         }
 
         public ConsumerShutdownEventHandler GetShutdownHandler()
@@ -222,8 +221,8 @@ namespace RabbitMQHare
 
         public override void Dispose()
         {
-            if (myConsumerTag != null)
-                Model.BasicCancel(myConsumerTag);
+            if (_myConsumerTag != null)
+                Model.BasicCancel(_myConsumerTag);
             if (Model != null)
             {
                 Model.Close();
@@ -232,17 +231,16 @@ namespace RabbitMQHare
 
         private static string GetUniqueName()
         {
-            IPHostEntry host;
             string localIP = null;
-            host = Dns.GetHostEntry(Dns.GetHostName());
-            foreach(IPAddress ip in host.AddressList) {
+            var host = Dns.GetHostEntry(Dns.GetHostName());
+            foreach(var ip in host.AddressList) {
                 if (!IPAddress.IsLoopback(ip) && ip.AddressFamily == AddressFamily.InterNetwork)
                 {
                     localIP = ip.ToString();
                     break;
                 }
             }
-            return (localIP ?? "0.0.0.0") + "-" + random.Next();
+            return (localIP ?? "0.0.0.0") + "-" + _random.Next();
         }
     }
 }
