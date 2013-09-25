@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -80,6 +82,7 @@ namespace RabbitMQHare
 
     public class RabbitConsumer : RabbitConnectorCommon
     {
+        private static Random random = new Random();
         private readonly RabbitQueue myQueue;
         private BaseConsumer myConsumer;
         private string myConsumerTag;
@@ -161,6 +164,7 @@ namespace RabbitMQHare
             : base(settings)
         {
             mySettings = settings;
+            myConsumerTag = GetUniqueName();
         }
 
         internal BaseConsumer CreateConsumer(IModel model)
@@ -194,7 +198,10 @@ namespace RabbitMQHare
         {
             InternalStart();
             // The false for noHack is mandatory. Otherwise it will simply dequeue messages all the time.
-            myConsumerTag = Model.BasicConsume(myQueue.Name, false, myConsumer);
+            if (myConsumerTag != null)
+                Model.BasicConsume(myQueue.Name, false, myConsumerTag, myConsumer);
+            else
+                myConsumerTag = Model.BasicConsume(myQueue.Name, false, myConsumer);
         }
 
         public ConsumerShutdownEventHandler GetShutdownHandler()
@@ -221,6 +228,21 @@ namespace RabbitMQHare
             {
                 Model.Close();
             }
+        }
+
+        private static string GetUniqueName()
+        {
+            IPHostEntry host;
+            string localIP = null;
+            host = Dns.GetHostEntry(Dns.GetHostName());
+            foreach(IPAddress ip in host.AddressList) {
+                if (!IPAddress.IsLoopback(ip) && ip.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    localIP = ip.ToString();
+                    break;
+                }
+            }
+            return (localIP ?? "0.0.0.0") + "-" + random.Next();
         }
     }
 }
