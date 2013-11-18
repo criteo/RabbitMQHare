@@ -60,6 +60,7 @@
     <Compile Include="RabbitPublisher.cs" />
     <Compile Include="RabbitQueue.cs" />
     <Compile Include="SyncConsumer.cs" />
+    <Compile Include="ConnectionFailureException.cs" />
     <Compile Include="ThreadedConsumer.cs" />
   </ItemGroup>
   <ItemGroup>

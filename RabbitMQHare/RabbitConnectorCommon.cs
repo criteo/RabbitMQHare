@@ -40,6 +40,8 @@ namespace RabbitMQHare
         internal Action<IModel> RedeclareMyTopology;
         internal abstract void SpecificRestart(IModel model);
 
+        internal bool HasAlreadyStartedOnce = false;
+
         public abstract void Dispose();
 
         [ThreadStatic]
@@ -71,12 +73,14 @@ namespace RabbitMQHare
             _settings = settings;
         }
 
-        internal void InternalStart()
+        internal void InternalStart(ConnectionFailureException callReason = null)
         {
             var ok = false;
             var retries = 0;
             var exceptions = new Dictionary<AmqpTcpEndpoint, Exception>(1);
             var attempts = new Dictionary<AmqpTcpEndpoint, int>(1);
+            if (HasAlreadyStartedOnce)
+                OnTemporaryConnectionFailureFailure(callReason);
             while (!ok && (++retries < _settings.MaxConnectionRetry || _settings.MaxConnectionRetry == -1 || _settings.MaxConnectionRetry == Timeout.Infinite))
             {
                 try
@@ -87,6 +91,7 @@ namespace RabbitMQHare
                     TryRedeclareTopology();
                     SpecificRestart(Model);
                     ok = true;
+                    HasAlreadyStartedOnce = true;
                 }
                 catch (Exception e)
                 {

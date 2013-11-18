@@ -195,6 +195,11 @@ namespace RabbitMQHare
         /// </summary>
         public void Start()
         {
+            Start(null);
+        }
+
+        private void Start(ConnectionFailureException e)
+        {
             InternalStart();
             // The false for noHack is mandatory. Otherwise it will simply dequeue messages all the time.
             if (_myConsumerTag != null)
@@ -208,7 +213,11 @@ namespace RabbitMQHare
             //Will restart everything, that is the connection, the model, the consumer. 
             //All messages that were already in treatment are lost and will be delivered again, 
             //unless you have taken the responsability to ack messages
-            return (_, __) => Start();
+            return (_, shutdownEventArgs) =>
+            {
+                var e = new ConnectionFailureException(shutdownEventArgs);
+                Start(e);
+            };
         }
 
         public ConsumerEventHandler GetDeleteHandler()
@@ -216,7 +225,11 @@ namespace RabbitMQHare
             //Will restart everything, that is the connection, the model, the consumer. 
             //All messages that were already in treatment are lost and will be delivered again, 
             //unless you have taken the responsability to ack messages
-            return (_, __) => Start();
+            return (_, consumerEventArgs) =>
+            {
+                var e = new ConnectionFailureException(consumerEventArgs);
+                Start(e);
+            };
         }
 
         public override void Dispose()
