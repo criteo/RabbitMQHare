@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using RabbitMQ.Client;
 using System.Threading.Tasks;
+using RabbitMQ.Client.Events;
 
 namespace RabbitMQHare
 {
@@ -39,9 +40,14 @@ namespace RabbitMQHare
 
         /// <summary>
         /// Prefer to send a message twice than loosing it
-        /// Order is not garanteed
+        /// Order is not garanteed. If you use this with UseConfirm, then message are requeued at most once.
         /// </summary>
         public bool RequeueMessageAfterFailure { get; set; }
+
+        /// <summary>
+        /// Use publisher lightweight confirms
+        /// </summary>
+        public bool UseConfirms { get; set; }
 
         public static HarePublisherSettings GetDefaultSettings()
         {
@@ -56,6 +62,7 @@ namespace RabbitMQHare
                     props.ContentType = "text/plain";
                     props.DeliveryMode = 1;
                 },
+                UseConfirms = false,
             };
         }
     }
@@ -66,7 +73,7 @@ namespace RabbitMQHare
     public class RabbitPublisher : RabbitConnectorCommon
     {
         private IBasicProperties _props;
-        private readonly ConcurrentQueue<KeyValuePair<string, byte[]>> _internalQueue;
+        private readonly ConcurrentQueue<Message> _internalQueue;
         private readonly object _lock = new object();
 
         private readonly RabbitExchange _myExchange;
@@ -74,6 +81,12 @@ namespace RabbitMQHare
         private readonly CancellationTokenSource _cancellation;
         private readonly object _token = new object();
         private readonly object _tokenBlocking = new object();
+
+        //We use a dictionnary instead of a queue because there is no garantee that
+        //acks or nacks come into order :
+        //https://groups.google.com/forum/#!msg/rabbitmq-discuss/0O8Dick9xGA/ZF2_D8QeTzAJ
+        //(the answer is from M. Radestock, technical lead of rmq)
+        private ConcurrentDictionary<ulong, Message> _unacked;
 
         public delegate void NotEnqueued();
         /// <summary>
@@ -87,6 +100,16 @@ namespace RabbitMQHare
         /// This is different from StartHandler of consumer, so you can modify this at any time
         /// </summary>
         public event StartHandler OnStart;
+
+        public delegate void NAckedHandler(ICollection<Message> nackedMessages);
+
+        /// <summary>
+        /// Handler called when some messages are not acknowledged after being published.
+        /// It can happen if rabbitmq send a nacked message, or if the connection is lost
+        /// before ack are received.
+        /// Using this handler has no sense when UseConfirms setting is false.
+        /// </summary>
+        public event NAckedHandler OnNAcked;
 
         private void OnNotEnqueuedHandler()
         {
@@ -111,6 +134,21 @@ namespace RabbitMQHare
                 try
                 {
                     copy(this);
+                }
+                catch (Exception e)
+                {
+                    OnEventHandlerFailure(e);
+                }
+        }
+
+        private void OnNAckHandler(ICollection<Message> losts)
+        {
+            var copy = OnNAcked; //see http://stackoverflow.com/questions/786383/c-sharp-events-and-thread-safety
+            //this behavior allow thread safety and allow to expose event publicly
+            if (copy != null)
+                try
+                {
+                    copy(losts);
                 }
                 catch (Exception e)
                 {
@@ -172,7 +210,14 @@ namespace RabbitMQHare
             Started = false;
             MySettings = settings;
 
-            _internalQueue = new ConcurrentQueue<KeyValuePair<string, byte[]>>();
+            _internalQueue = new ConcurrentQueue<Message>();
+            if (MySettings.UseConfirms && MySettings.RequeueMessageAfterFailure)
+                OnNAcked += lostMessages =>
+                {
+                    foreach (var m in lostMessages)
+                        if (m.Failed < 2)
+                            Publish(m.RoutingKey, m.Payload);
+                };
         }
 
         /// <summary>
@@ -198,6 +243,63 @@ namespace RabbitMQHare
         {
             _props = model.CreateBasicProperties();
             MySettings.ConstructProperties(_props);
+
+            if (MySettings.UseConfirms)
+            {
+                model.ConfirmSelect();
+                //requeue all messages that were on the wire. This might lead to duplicates.
+                if (MySettings.RequeueMessageAfterFailure && _unacked != null)
+                {
+                    var unacked = new List<Message>(_unacked.Count);
+                    foreach (var m in _unacked.Values)
+                    {
+                        unacked.Add(new Message
+                        {
+                            Failed = m.Failed + 1,
+                            RoutingKey = m.RoutingKey,
+                            Payload = m.Payload
+                        });
+                    }
+                    OnNAckHandler(unacked);
+                }
+                _unacked = new ConcurrentDictionary<ulong, Message>();
+                model.BasicAcks += (_, args) => HandleAcknowledgement(false, args.DeliveryTag, args.Multiple);
+                model.BasicNacks += (_, args) => HandleAcknowledgement(true, args.DeliveryTag, args.Multiple);
+            }
+        }
+
+        private void HandleAcknowledgement(bool nack, ulong deliveryTag, bool multiple)
+        {
+            var m = new Message();
+            List<Message> lostMessages = null;
+            if (multiple)
+            {
+                /* modifying the dictionnary while it is modified is safe.
+                 * it may not reflect the last state of the dictionnary but any value that may be added
+                 * after we start the loop is always above the threshold to be deleted. */
+                foreach (var tag in _unacked.Keys)
+                {
+                    if (tag <= deliveryTag
+                        && _unacked.TryRemove(tag, out m)
+                        && nack)
+                    {
+                        if (lostMessages == null) lostMessages = new List<Message>();
+                        m.Failed += 1;
+                        lostMessages.Add(m);
+                    }
+                }
+                if (lostMessages != null && lostMessages.Count > 0)
+                    OnNAckHandler(lostMessages);
+            }
+            else
+            {
+                if (_unacked.TryRemove(deliveryTag, out m) && nack)
+                {
+                    m.Failed += 1;
+                    lostMessages = new List<Message> { m };
+                    OnNAckHandler(lostMessages);
+                }
+            }
         }
 
         /// <summary>
@@ -208,7 +310,7 @@ namespace RabbitMQHare
         {
             while (!token.IsCancellationRequested)
             {
-                KeyValuePair<string, byte[]> res;
+                Message res;
                 if (_internalQueue.TryPeek(out res))
                 {
                     lock (_lock)
@@ -219,11 +321,14 @@ namespace RabbitMQHare
                             {
                                 Monitor.Pulse(_tokenBlocking);
                             }
-                            string routingKey = res.Key;
-                            byte[] message = res.Value;
+                            string routingKey = res.RoutingKey;
+                            byte[] message = res.Payload;
                             try
                             {
+                                var next = Model.NextPublishSeqNo;
                                 Model.BasicPublish(_myExchange.Name, routingKey, _props, message);
+                                if (MySettings.UseConfirms)
+                                    _unacked.TryAdd(next, res);
                             }
                             catch (RabbitMQ.Client.Exceptions.AlreadyClosedException e)
                             {
@@ -273,7 +378,7 @@ namespace RabbitMQHare
                 OnNotEnqueuedHandler();
                 return false;
             }
-            _internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
+            _internalQueue.Enqueue(new Message { RoutingKey = routingKey, Payload = message });
             lock (_token)
             {
                 Monitor.Pulse(_token);
@@ -296,7 +401,7 @@ namespace RabbitMQHare
                     Monitor.Wait(_tokenBlocking);
                 }
             }
-            _internalQueue.Enqueue(new KeyValuePair<string, byte[]>(routingKey, message));
+            _internalQueue.Enqueue(new Message { RoutingKey = routingKey, Payload = message });
             lock (_token)
             {
                 Monitor.Pulse(_token);
@@ -312,7 +417,16 @@ namespace RabbitMQHare
                 Model.Dispose();
             }
         }
+    }
 
+    public struct Message
+    {
+        public string RoutingKey { get; set; }
+        public byte[] Payload { get; set; }
 
+        /// <summary>
+        /// Number of times this message have been send and have failed.
+        /// </summary>
+        public int Failed;
     }
 }
