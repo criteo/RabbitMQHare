@@ -411,11 +411,15 @@ namespace RabbitMQHare
         public override void Dispose()
         {
             _cancellation.Cancel();
-            Monitor.TryEnter(_lock, TimeSpan.FromSeconds(30));
-            if (Model != null)
+            lock (_token)
             {
-                Model.Dispose();
+                Monitor.Pulse(_token);      // unlock DequeueSend thread for exit
             }
+
+            lock (_lock) { };                    // wait to process all messages existing in internal queue
+
+            if (Model != null)
+                Model.Dispose();
         }
     }
 
