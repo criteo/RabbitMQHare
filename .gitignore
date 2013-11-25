@@ -7,3 +7,7 @@ packages/
 *.ctl
 *.nupkg
 tools/srcpackages/
+.cbs/
+_ReSharper.RabbitMQHare/
+cbs.log
+logs/*
