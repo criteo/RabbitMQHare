@@ -2,6 +2,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RabbitMQHare", "RabbitMQHare\RabbitMQHare.csproj", "{19623044-07FE-4777-B8A4-5DF543110729}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RabbitMQHare.UTest", "RabbitMQHare.UTest\RabbitMQHare.UTest.csproj", "{358537C9-25AE-4B59-98BE-4BB293406A60}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -22,6 +24,16 @@ Global
 		{19623044-07FE-4777-B8A4-5DF543110729}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{19623044-07FE-4777-B8A4-5DF543110729}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{19623044-07FE-4777-B8A4-5DF543110729}.Release|x86.ActiveCfg = Release|Any CPU
+		{358537C9-25AE-4B59-98BE-4BB293406A60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{358537C9-25AE-4B59-98BE-4BB293406A60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{358537C9-25AE-4B59-98BE-4BB293406A60}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{358537C9-25AE-4B59-98BE-4BB293406A60}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{358537C9-25AE-4B59-98BE-4BB293406A60}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{358537C9-25AE-4B59-98BE-4BB293406A60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{358537C9-25AE-4B59-98BE-4BB293406A60}.Release|Any CPU.Build.0 = Release|Any CPU
+		{358537C9-25AE-4B59-98BE-4BB293406A60}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{358537C9-25AE-4B59-98BE-4BB293406A60}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{358537C9-25AE-4B59-98BE-4BB293406A60}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
