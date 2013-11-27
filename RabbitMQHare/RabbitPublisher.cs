@@ -373,7 +373,7 @@ namespace RabbitMQHare
         /// <returns>false if the message was droppped instead of added to the queue</returns>
         public bool Publish(string routingKey, byte[] message)
         {
-            if (_internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
+            if (_internalQueue.Count >= MySettings.MaxMessageWaitingToBeSent)
             {
                 OnNotEnqueuedHandler();
                 return false;
@@ -393,7 +393,7 @@ namespace RabbitMQHare
         /// <param name="message">the message you want to send</param>
         public void BlockingPublish(string routingKey, byte[] message)
         {
-            if (_internalQueue.Count > MySettings.MaxMessageWaitingToBeSent)
+            if (_internalQueue.Count >= MySettings.MaxMessageWaitingToBeSent)
             {
                 lock (_tokenBlocking)
                 {
