@@ -9,6 +9,7 @@ namespace RabbitMQHare.UTest
     {
         private Mock<IModel> _model;
         private Mock<IHareSettings> _conf;
+        private StubConnectorCommon stub;
 
         [SetUp]
         public void Setup()
@@ -18,13 +19,20 @@ namespace RabbitMQHare.UTest
             _conf.Setup(a => a.MaxConnectionRetry).Returns(5);
         }
 
+        [TearDown]
+        public void TearDown()
+        {
+            if (stub != null)
+                stub.Dispose();
+        }
+
         [Test]
         public void BasicTest()
         {
             var connection = new Mock<IConnection>();
             connection.Setup(c => c.CreateModel()).Returns(_model.Object);
 
-            var stub = new StubConnectorCommon(_conf.Object)
+            stub = new StubConnectorCommon(_conf.Object)
                 {
                     //silently replace the connection getter
                     CreateConnection = () => connection.Object,
@@ -43,7 +51,7 @@ namespace RabbitMQHare.UTest
             var calls = 0;
             connection.Setup(c => c.CreateModel()).Returns(_model.Object).Callback(() => { if (++calls < 3) throw new Exception("Argh I fail to connect !"); });
 
-            var stub = new StubConnectorCommon(_conf.Object)
+            stub = new StubConnectorCommon(_conf.Object)
                 {
                     //silently replace the connection getter
                     CreateConnection = () => connection.Object,

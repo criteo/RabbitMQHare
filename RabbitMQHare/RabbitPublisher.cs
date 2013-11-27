@@ -86,7 +86,7 @@ namespace RabbitMQHare
         //acks or nacks come into order :
         //https://groups.google.com/forum/#!msg/rabbitmq-discuss/0O8Dick9xGA/ZF2_D8QeTzAJ
         //(the answer is from M. Radestock, technical lead of rmq)
-        private ConcurrentDictionary<ulong, Message> _unacked;
+        internal ConcurrentDictionary<ulong, Message> _unacked;
 
         public delegate void NotEnqueued();
         /// <summary>
@@ -156,7 +156,7 @@ namespace RabbitMQHare
                 }
         }
 
-        public HarePublisherSettings MySettings { get; private set; }
+        public HarePublisherSettings MySettings { get; internal set; }
 
         public bool Started { get; private set; }
 
