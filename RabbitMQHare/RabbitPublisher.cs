@@ -72,7 +72,7 @@ namespace RabbitMQHare
     /// </summary>
     public class RabbitPublisher : RabbitConnectorCommon
     {
-        private IBasicProperties _props;
+        internal IBasicProperties _props;
         private readonly ConcurrentQueue<Message> _internalQueue;
         private readonly object _lock = new object();
 

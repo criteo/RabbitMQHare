@@ -39,6 +39,7 @@ namespace RabbitMQHare
         private readonly IHareSettings _settings;
         internal Action<IModel> RedeclareMyTopology;
         internal abstract void SpecificRestart(IModel model);
+        internal Func<IConnection> CreateConnection;
 
         internal bool HasAlreadyStartedOnce = false;
 
@@ -71,6 +72,7 @@ namespace RabbitMQHare
         internal RabbitConnectorCommon(IHareSettings settings)
         {
             _settings = settings;
+            CreateConnection = () => settings.ConnectionFactory.CreateConnection();
         }
 
         internal void InternalStart(ConnectionFailureException callReason = null)
@@ -85,7 +87,7 @@ namespace RabbitMQHare
             {
                 try
                 {
-                    Connection = _settings.ConnectionFactory.CreateConnection();
+                    Connection = CreateConnection();
                     Model = Connection.CreateModel();
                     Connection.AutoClose = true;
                     TryRedeclareTopology();

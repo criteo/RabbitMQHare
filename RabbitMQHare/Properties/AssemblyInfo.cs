@@ -21,6 +21,7 @@ using System.Runtime.InteropServices;
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("058763b1-7003-4abe-86f7-e7f58334b2c7")]
+[assembly: InternalsVisibleTo("RabbitMQHare.UTest")]
 
 // Version information for an assembly consists of the following four values:
 //
