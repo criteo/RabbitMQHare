@@ -60,6 +60,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RabbitConnectorCommon.cs" />
     <Compile Include="RabbitPublisher.cs" />
+    <Compile Include="RabbitPublisherWithAcknowledgement.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
