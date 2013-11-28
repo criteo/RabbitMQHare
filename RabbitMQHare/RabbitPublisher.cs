@@ -319,14 +319,9 @@ namespace RabbitMQHare
                             {
                                 Monitor.Pulse(_tokenBlocking);
                             }
-                            string routingKey = res.RoutingKey;
-                            byte[] message = res.Payload;
                             try
                             {
-                                var next = Model.NextPublishSeqNo;
-                                Model.BasicPublish(_myExchange.Name, routingKey, _props, message);
-                                if (MySettings.UseConfirms)
-                                    _unacked.TryAdd(next, res);
+                                res = SendMessage(res);
                             }
                             catch (RabbitMQ.Client.Exceptions.AlreadyClosedException e)
                             {
@@ -361,6 +356,15 @@ namespace RabbitMQHare
                     }
                 }
             }
+        }
+
+        private Message SendMessage(Message res)
+        {
+            var next = Model.NextPublishSeqNo;
+            Model.BasicPublish(_myExchange.Name, res.RoutingKey, _props, res.Payload);
+            if (MySettings.UseConfirms)
+                _unacked.TryAdd(next, res);
+            return res;
         }
 
         /// <summary>

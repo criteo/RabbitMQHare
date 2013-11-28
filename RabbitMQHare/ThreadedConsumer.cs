@@ -59,28 +59,7 @@ namespace RabbitMQHare
                             ++_taskCount;
                         }
 
-                        var task = new Task(() =>
-                        {
-                            try
-                            {
-                                DispatchMessage(e);
-                                if (AutoAck) Model.BasicAck(e.DeliveryTag, false);
-                            }
-                            catch (Exception ex)
-                            {
-                                DispatchError(e, ex);
-                            }
-                            finally
-                            {
-                                lock (_queue)
-                                {
-                                    --_taskCount;
-                                    Monitor.Pulse(_queue);
-                                }
-                            }
-                        }, _cts.Token);
-
-                        task.Start(_scheduler);
+                        CreateAndStartTask(e);
                     }
                     catch (Exception ex)
                     {
@@ -93,6 +72,32 @@ namespace RabbitMQHare
                     while (_taskCount > 0) Monitor.Wait(_queue);
                 }
             }) {IsBackground = true};
+        }
+
+        private void CreateAndStartTask(BasicDeliverEventArgs e)
+        {
+            var task = new Task(() =>
+            {
+                try
+                {
+                    DispatchMessage(e);
+                    if (AutoAck) Model.BasicAck(e.DeliveryTag, false);
+                }
+                catch (Exception ex)
+                {
+                    DispatchError(e, ex);
+                }
+                finally
+                {
+                    lock (_queue)
+                    {
+                        --_taskCount;
+                        Monitor.Pulse(_queue);
+                    }
+                }
+            }, _cts.Token);
+
+            task.Start(_scheduler);
         }
 
         public override void OnCancel()
