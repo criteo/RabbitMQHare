@@ -70,7 +70,7 @@ namespace RabbitMQHare
     /// <summary>
     /// TODO doc 
     /// </summary>
-    public class RabbitPublisher : RabbitConnectorCommon
+    public sealed class RabbitPublisher : RabbitConnectorCommon
     {
         internal IBasicProperties _props;
         private readonly ConcurrentQueue<Message> _internalQueue;
@@ -78,7 +78,6 @@ namespace RabbitMQHare
 
         private readonly RabbitExchange _myExchange;
         private readonly Task _send;
-        private readonly CancellationTokenSource _cancellation;
         private readonly object _token = new object();
         private readonly object _tokenBlocking = new object();
 
@@ -205,7 +204,6 @@ namespace RabbitMQHare
         private RabbitPublisher(HarePublisherSettings settings)
             : base(settings)
         {
-            _cancellation = new CancellationTokenSource();
             _send = new Task(() => DequeueSend(_cancellation.Token));
             Started = false;
             MySettings = settings;
@@ -410,7 +408,7 @@ namespace RabbitMQHare
 
         public override void Dispose()
         {
-            _cancellation.Cancel();
+            base.Dispose();
             lock (_token)
             {
                 Monitor.Pulse(_token);      // unlock DequeueSend thread for exit

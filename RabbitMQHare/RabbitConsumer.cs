@@ -80,7 +80,7 @@ namespace RabbitMQHare
     }
 
 
-    public class RabbitConsumer : RabbitConnectorCommon
+    public sealed class RabbitConsumer : RabbitConnectorCommon
     {
         private readonly RabbitQueue _myQueue;
         internal BaseConsumer _myConsumer;
@@ -234,6 +234,7 @@ namespace RabbitMQHare
 
         public override void Dispose()
         {
+            base.Dispose();
             if (Model != null)
             {
                 if (_myConsumerTag != null)

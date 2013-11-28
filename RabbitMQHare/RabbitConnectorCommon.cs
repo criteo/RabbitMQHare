@@ -41,9 +41,13 @@ namespace RabbitMQHare
         internal abstract void SpecificRestart(IModel model);
         internal Func<IConnection> CreateConnection;
 
+        protected readonly CancellationTokenSource _cancellation;
         internal bool HasAlreadyStartedOnce = false;
 
-        public abstract void Dispose();
+        public virtual void Dispose()
+        {
+            _cancellation.Cancel();
+        }
 
         protected Random _random = new Random();
 
@@ -72,6 +76,7 @@ namespace RabbitMQHare
         {
             _settings = settings;
             CreateConnection = () => settings.ConnectionFactory.CreateConnection();
+            _cancellation = new CancellationTokenSource();
         }
 
         internal void InternalStart(ConnectionFailureException callReason = null)
@@ -82,7 +87,7 @@ namespace RabbitMQHare
             var attempts = new Dictionary<AmqpTcpEndpoint, int>(1);
             if (HasAlreadyStartedOnce)
                 OnTemporaryConnectionFailureFailure(callReason);
-            while (!ok && (++retries < _settings.MaxConnectionRetry || _settings.MaxConnectionRetry == -1 || _settings.MaxConnectionRetry == Timeout.Infinite))
+            while (!ok && (++retries < _settings.MaxConnectionRetry || _settings.MaxConnectionRetry == -1 || _settings.MaxConnectionRetry == Timeout.Infinite) && !_cancellation.IsCancellationRequested)
             {
                 try
                 {
