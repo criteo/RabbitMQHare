@@ -45,8 +45,7 @@ namespace RabbitMQHare
 
         public abstract void Dispose();
 
-        [ThreadStatic]
-        protected static Random _random = new Random();
+        protected Random _random = new Random();
 
         /// <summary>
         /// Called when an exception is thrown when connecting to rabbit. It is called at most [MaxConnectionRetry] times before a more serious BrokerUnreachableException is thrown

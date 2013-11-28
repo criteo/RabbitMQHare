@@ -31,7 +31,7 @@ namespace RabbitMQHare.UTest
             publisher = new RabbitMQHare.RabbitPublisher(settings, new RabbitExchange("testing"))
                 {
                     CreateConnection = () => connection.Object,
-                    RedeclareMyTopology = model => { }
+                    RedeclareMyTopology = model => { },
                 };
         }
 

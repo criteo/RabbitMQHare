@@ -83,7 +83,7 @@ namespace RabbitMQHare
     public class RabbitConsumer : RabbitConnectorCommon
     {
         private readonly RabbitQueue _myQueue;
-        private BaseConsumer _myConsumer;
+        internal BaseConsumer _myConsumer;
         private string _myConsumerTag;
 
         /// <summary>
@@ -242,7 +242,7 @@ namespace RabbitMQHare
             }
         }
 
-        private static string GetUniqueName()
+        private string GetUniqueName()
         {
             string localIP = null;
             var host = Dns.GetHostEntry(Dns.GetHostName());
