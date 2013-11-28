@@ -234,10 +234,10 @@ namespace RabbitMQHare
 
         public override void Dispose()
         {
-            if (_myConsumerTag != null)
-                Model.BasicCancel(_myConsumerTag);
             if (Model != null)
             {
+                if (_myConsumerTag != null)
+                    Model.BasicCancel(_myConsumerTag);
                 Model.Close();
             }
         }
