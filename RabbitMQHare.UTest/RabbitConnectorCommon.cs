@@ -5,62 +5,73 @@ using RabbitMQ.Client;
 
 namespace RabbitMQHare.UTest
 {
-    class RabbitConnectorCommon
+    internal class RabbitConnectorCommon
     {
-        private Mock<IModel> _model;
-        private Mock<IHareSettings> _conf;
-        private StubConnectorCommon stub;
-
-        [SetUp]
-        public void Setup()
+        private TestContext CreateContext()
         {
-            _model = new Mock<IModel>();
-            _conf = new Mock<IHareSettings>();
-            _conf.Setup(a => a.MaxConnectionRetry).Returns(5);
-        }
-
-        [TearDown]
-        public void TearDown()
-        {
-            if (stub != null)
-                stub.Dispose();
+            var model = new Mock<IModel>();
+            var conf = new Mock<IHareSettings>();
+            conf.Setup(a => a.MaxConnectionRetry).Returns(5);
+            return new TestContext()
+                {
+                    Conf = conf,
+                    Model = model
+                };
         }
 
         [Test]
         public void BasicTest()
         {
-            var connection = new Mock<IConnection>();
-            connection.Setup(c => c.CreateModel()).Returns(_model.Object);
+            using (var testContext = CreateContext())
+            {
+                var connection = new Mock<IConnection>();
+                connection.Setup(c => c.CreateModel()).Returns(testContext.Model.Object);
+                testContext.Stub = new StubConnectorCommon(testContext.Conf.Object)
+                    {
+                        //silently replace the connection getter
+                        CreateConnection = () => connection.Object,
+                        RedeclareMyTopology = _ => { },
+                    };
 
-            stub = new StubConnectorCommon(_conf.Object)
-                {
-                    //silently replace the connection getter
-                    CreateConnection = () => connection.Object,
-                    RedeclareMyTopology = _ => { },
-                };
+                testContext.Stub.InternalStart();
 
-            stub.InternalStart();
-
-            Assert.IsTrue(stub.HasAlreadyStartedOnce);
+                Assert.IsTrue(testContext.Stub.HasAlreadyStartedOnce);
+            }
         }
 
         [Test]
         public void RelunctantConnectivity()
         {
-            var connection = new Mock<IConnection>();
-            var calls = 0;
-            connection.Setup(c => c.CreateModel()).Returns(_model.Object).Callback(() => { if (++calls < 3) throw new Exception("Argh I fail to connect !"); });
+            using (var testContext = CreateContext())
+            {
+                var connection = new Mock<IConnection>();
+                var calls = 0;
+                connection.Setup(c => c.CreateModel()).Returns(testContext.Model.Object).Callback(() => { if (++calls < 3) throw new Exception("Argh I fail to connect !"); });
 
-            stub = new StubConnectorCommon(_conf.Object)
-                {
-                    //silently replace the connection getter
-                    CreateConnection = () => connection.Object,
-                    RedeclareMyTopology = _ => { },
-                };
+                testContext.Stub = new StubConnectorCommon(testContext.Conf.Object)
+                    {
+                        //silently replace the connection getter
+                        CreateConnection = () => connection.Object,
+                        RedeclareMyTopology = _ => { },
+                    };
 
-            stub.InternalStart();
+                testContext.Stub.InternalStart();
 
-            Assert.IsTrue(stub.HasAlreadyStartedOnce);
+                Assert.IsTrue(testContext.Stub.HasAlreadyStartedOnce);
+            }
+        }
+
+        internal class TestContext : IDisposable
+        {
+            public StubConnectorCommon Stub { get; set; }
+            public Mock<IModel> Model { get; set; }
+            public Mock<IHareSettings> Conf { get; set; }
+
+            public void Dispose()
+            {
+                if (Stub != null)
+                    Stub.Dispose();
+            }
         }
     }
 

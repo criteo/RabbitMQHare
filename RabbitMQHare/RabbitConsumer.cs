@@ -59,23 +59,23 @@ namespace RabbitMQHare
         public static HareConsumerSettings GetDefaultSettings()
         {
             return new HareConsumerSettings
-            {
-                ConnectionFactory = new ConnectionFactory
-                    {
-                        HostName = "localhost",
-                        Port = 5672,
-                        UserName = ConnectionFactory.DefaultUser,
-                        Password = ConnectionFactory.DefaultPass,
-                        VirtualHost = ConnectionFactory.DefaultVHost,
-                        RequestedHeartbeat = 60
-                    },
-                MaxConnectionRetry = 5,
-                IntervalConnectionTries = TimeSpan.FromSeconds(5),
-                MaxWorkers = 1,
-                AcknowledgeMessageForMe = true,
-                TaskScheduler = TaskScheduler.Default,
-                HandleMessagesSynchronously = false
-            };
+                {
+                    ConnectionFactory = new ConnectionFactory
+                        {
+                            HostName = "localhost",
+                            Port = 5672,
+                            UserName = ConnectionFactory.DefaultUser,
+                            Password = ConnectionFactory.DefaultPass,
+                            VirtualHost = ConnectionFactory.DefaultVHost,
+                            RequestedHeartbeat = 60
+                        },
+                    MaxConnectionRetry = 5,
+                    IntervalConnectionTries = TimeSpan.FromSeconds(5),
+                    MaxWorkers = 1,
+                    AcknowledgeMessageForMe = true,
+                    TaskScheduler = TaskScheduler.Default,
+                    HandleMessagesSynchronously = false
+                };
         }
     }
 
@@ -87,14 +87,14 @@ namespace RabbitMQHare
         private string _myConsumerTag;
 
         /// <summary>
-        /// Event handler for messages. If you modify this after Start methed is called, it won't be applied 
+        /// Event handler for messages. If you modify this after Start methed is called, it won't be applied
         /// until next restart (=connection issue)
         ///  If you forgot to set this one, the consumer will swallow messages as fast as it can
         /// </summary>
         public event BasicDeliverEventHandler MessageHandler;
 
         /// <summary>
-        /// Event handler for messages handler failure. If you modify this after Start method is called, it won't be applied 
+        /// Event handler for messages handler failure. If you modify this after Start method is called, it won't be applied
         /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
         /// Handler that is called when :
         /// 1)the messageHandler throws an exception 
@@ -104,13 +104,13 @@ namespace RabbitMQHare
         public event ThreadedConsumer.CallbackExceptionEventHandlerWithMessage ErrorHandler;
 
         /// <summary>
-        /// Handler called at each start (and restart). If you modify this after Start method is called, it won't be applied 
+        /// Handler called at each start (and restart). If you modify this after Start method is called, it won't be applied
         /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
         /// </summary>
         public event ConsumerEventHandler StartHandler;
 
         /// <summary>
-        /// Handler called at each stop. If you modify this after Start method is called, it won't be applied 
+        /// Handler called at each stop. If you modify this after Start method is called, it won't be applied
         /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
         /// </summary>
         public event ConsumerEventHandler StopHandler;
@@ -125,13 +125,13 @@ namespace RabbitMQHare
         public RabbitConsumer(HareConsumerSettings settings, RabbitExchange exchange)
             : this(settings)
         {
-            _myQueue = new RabbitQueue(exchange.Name + "-" + _random.Next()) { AutoDelete = true };
+            _myQueue = new RabbitQueue(exchange.Name + "-" + _random.Next()) {AutoDelete = true};
             RedeclareMyTopology = m =>
-            {
-                exchange.Declare(m);
-                _myQueue.Declare(m);
-                m.QueueBind(_myQueue.Name, exchange.Name, "toto");
-            };
+                {
+                    exchange.Declare(m);
+                    _myQueue.Declare(m);
+                    m.QueueBind(_myQueue.Name, exchange.Name, "toto");
+                };
         }
 
         /// <summary>
@@ -172,15 +172,15 @@ namespace RabbitMQHare
             {
                 return new SyncConsumer(model, _mySettings.AcknowledgeMessageForMe);
             }
-            return new ThreadedConsumer(model, (ushort)_mySettings.MaxWorkers, _mySettings.AcknowledgeMessageForMe,
-                _mySettings.TaskScheduler ?? TaskScheduler.Default);
+            return new ThreadedConsumer(model, (ushort) _mySettings.MaxWorkers, _mySettings.AcknowledgeMessageForMe,
+                                        _mySettings.TaskScheduler ?? TaskScheduler.Default);
         }
 
         internal override void SpecificRestart(IModel model)
         {
             _myConsumer = CreateConsumer(model);
             if (_mySettings.CancelationTime.HasValue)
-                _myConsumer.ShutdownTimeout = (int)Math.Min(_mySettings.CancelationTime.Value.TotalMilliseconds, int.MaxValue);
+                _myConsumer.ShutdownTimeout = (int) Math.Min(_mySettings.CancelationTime.Value.TotalMilliseconds, int.MaxValue);
             _myConsumer.OnStart += StartHandler;
             _myConsumer.OnStop += StopHandler;
             _myConsumer.OnShutdown += GetShutdownHandler(); //automatically restart a new consumer in case of failure
@@ -211,25 +211,25 @@ namespace RabbitMQHare
         public ConsumerShutdownEventHandler GetShutdownHandler()
         {
             //Will restart everything, that is the connection, the model, the consumer. 
-            //All messages that were already in treatment are lost and will be delivered again, 
+            //All messages that were already in treatment are lost and will be delivered again,
             //unless you have taken the responsability to ack messages
             return (_, shutdownEventArgs) =>
-            {
-                var e = new ConnectionFailureException(shutdownEventArgs);
-                Start(e);
-            };
+                {
+                    var e = new ConnectionFailureException(shutdownEventArgs);
+                    Start(e);
+                };
         }
 
         public ConsumerEventHandler GetDeleteHandler()
         {
             //Will restart everything, that is the connection, the model, the consumer. 
-            //All messages that were already in treatment are lost and will be delivered again, 
+            //All messages that were already in treatment are lost and will be delivered again,
             //unless you have taken the responsability to ack messages
             return (_, consumerEventArgs) =>
-            {
-                var e = new ConnectionFailureException(consumerEventArgs);
-                Start(e);
-            };
+                {
+                    var e = new ConnectionFailureException(consumerEventArgs);
+                    Start(e);
+                };
         }
 
         public override void Dispose()
@@ -247,7 +247,8 @@ namespace RabbitMQHare
         {
             string localIP = null;
             var host = Dns.GetHostEntry(Dns.GetHostName());
-            foreach(var ip in host.AddressList) {
+            foreach (var ip in host.AddressList)
+            {
                 if (!IPAddress.IsLoopback(ip) && ip.AddressFamily == AddressFamily.InterNetwork)
                 {
                     localIP = ip.ToString();

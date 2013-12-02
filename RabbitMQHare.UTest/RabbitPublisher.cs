@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Threading;
 using Moq;
 using NUnit.Framework;
@@ -7,41 +6,49 @@ using RabbitMQ.Client;
 
 namespace RabbitMQHare.UTest
 {
-    class RabbitPublisher
+    internal class RabbitPublisher
     {
-        private Mock<IModel> _model;
-        private ManualResetEventSlim _mre;
-        private RabbitMQHare.RabbitPublisher publisher;
-        private Mock<IConnection> connection;
+        internal class TestContext : IDisposable
+        {
+            public Mock<IModel> Model { get; set; }
+            public ManualResetEventSlim Mre { get; set; }
+            public RabbitMQHare.RabbitPublisher Publisher { get; set; }
+            public Mock<IConnection> Connection { get; set; }
 
-        [SetUp]
-        public void Setup()
+            public void Dispose()
+            {
+                if (Publisher != null)
+                    Publisher.Dispose();
+            }
+        }
+
+        private TestContext CreateContext()
         {
             var props = new Mock<IBasicProperties>();
-            _model = new Mock<IModel>();
-            _model.Setup(m => m.CreateBasicProperties()).Returns(props.Object);
-            _mre = new ManualResetEventSlim(false);
+            var model = new Mock<IModel>();
+            model.Setup(m => m.CreateBasicProperties()).Returns(props.Object);
+            var mre = new ManualResetEventSlim(false);
 
 
-            connection = new Mock<IConnection>();
-            connection.Setup(c => c.CreateModel()).Returns(_model.Object);
+            var connection = new Mock<IConnection>();
+            connection.Setup(c => c.CreateModel()).Returns(model.Object);
 
             var settings = HarePublisherSettings.GetDefaultSettings();
             settings.MaxConnectionRetry = -1;
             settings.IntervalConnectionTries = TimeSpan.Zero;
             settings.MaxMessageWaitingToBeSent = 1;
-            publisher = new RabbitMQHare.RabbitPublisher(settings, new RabbitExchange("testing"))
+            var publisher = new RabbitMQHare.RabbitPublisher(settings, new RabbitExchange("testing"))
                 {
                     CreateConnection = () => connection.Object,
-                    RedeclareMyTopology = model => { },
+                    RedeclareMyTopology = m => { },
                 };
-        }
-
-        [TearDown]
-        public void TearDown()
-        {
-            if (publisher != null)
-                publisher.Dispose();
+            return new TestContext
+                {
+                    Connection = connection,
+                    Model = model,
+                    Mre = mre,
+                    Publisher = publisher
+                };
         }
 
         [Test]
@@ -49,66 +56,75 @@ namespace RabbitMQHare.UTest
         [TestCase(true)]
         public void BasicSend(bool blockingPublish)
         {
-            _model.Setup(m => m.BasicPublish(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IBasicProperties>(), It.IsAny<byte[]>())).Callback(() => _mre.Set());
-            publisher.Start();
-            Assert.IsTrue(publisher.Started);
+            using (var context = CreateContext())
+            {
+                context.Model.Setup(m => m.BasicPublish(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IBasicProperties>(), It.IsAny<byte[]>())).Callback(() => context.Mre.Set());
+                context.Publisher.Start();
+                Assert.IsTrue(context.Publisher.Started);
 
-            var message = new byte[] {0, 1, 1};
-            if (blockingPublish)
-                publisher.BlockingPublish("toto", message);
-            else
-                publisher.Publish("toto", message);
+                var message = new byte[] { 0, 1, 1 };
+                if (blockingPublish)
+                    context.Publisher.BlockingPublish("toto", message);
+                else
+                    context.Publisher.Publish("toto", message);
 
-            _mre.Wait(1000);
-            _model.Verify(m => m.BasicPublish("testing", "toto", publisher._props, message));
+                Assert.IsTrue(context.Mre.Wait(1000));
+                context.Model.Verify(m => m.BasicPublish("testing", "toto", context.Publisher._props, message));
+            }
         }
 
         [Test]
         public void NonEnqueued()
         {
-            var called = false;
-            publisher.NotEnqueuedHandler += () => called = true;
-            publisher.Start();
-            Assert.IsTrue(publisher.Started);
+            using (var context = CreateContext())
+            {
+                var called = false;
+                context.Publisher.NotEnqueuedHandler += () => called = true;
+                context.Publisher.Start();
+                Assert.IsTrue(context.Publisher.Started);
 
-            var message = new byte[] {0, 1, 1};
-            _mre = new ManualResetEventSlim(true);
-            _model.Setup(m => m.BasicPublish("testing", "toto", publisher._props, message)).Callback(() => _mre.Wait(10000));
+                var message = new byte[] { 0, 1, 1 };
+                context.Mre = new ManualResetEventSlim(true);
+                context.Model.Setup(m => m.BasicPublish("testing", "toto", context.Publisher._props, message)).Callback(() => context.Mre.Wait(10000));
 
-            for (var i = 0; i < 2; ++i)
-                publisher.Publish("toto", message);
-            _mre.Set();
+                for (var i = 0; i < 2; ++i)
+                    context.Publisher.Publish("toto", message);
+                context.Mre.Set();
 
-            Assert.IsTrue(called);
+                Assert.IsTrue(called);
+            }
         }
 
         [Test]
         [Timeout(10000)]
         public void ExtremeDisposal()
         {
-            Assert.AreEqual(-1, publisher.MySettings.MaxConnectionRetry, "For this test, we want the worst situation");
+            using (var context = CreateContext())
+            {
+                Assert.AreEqual(-1, context.Publisher.MySettings.MaxConnectionRetry, "For this test, we want the worst situation");
 
-            publisher.Start();
-            Assert.IsTrue(publisher.Started);
+                context.Publisher.Start();
+                Assert.IsTrue(context.Publisher.Started);
 
-            var message = new byte[] {0, 1, 1};
-            var connectionFail = new SemaphoreSlim(0);
-            _model.Setup(m => m.BasicPublish(It.IsAny<string>(), It.IsAny<string>(), publisher._props, message)).Throws(new Exception("I don't want your message anymore"));
-            connection.Setup(c => c.CreateModel()).Callback(() => connectionFail.Release(1)).Throws(new Exception("And I don't want to accept your connection either"));
+                var message = new byte[] { 0, 1, 1 };
+                var connectionFail = new SemaphoreSlim(0);
+                context.Model.Setup(m => m.BasicPublish(It.IsAny<string>(), It.IsAny<string>(), context.Publisher._props, message)).Throws(new Exception("I don't want your message anymore"));
+                context.Connection.Setup(c => c.CreateModel()).Callback(() => connectionFail.Release(1)).Throws(new Exception("And I don't want to accept your connection either"));
 
-            publisher.Publish("test", message);
+                context.Publisher.Publish("test", message);
 
-            /* The way callbacks are implemented on exception throwing mocks does not garantee
-             * that the callback is called "after" the exception is thrown.
-             * If we wait for two, we are sure at least one has been finished !
-             */
-            Assert.IsTrue(connectionFail.Wait(1000));
-            Assert.IsTrue(connectionFail.Wait(1000));
+                /* The way callbacks are implemented on exception throwing mocks does not garantee
+                 * that the callback is called "after" the exception is thrown.
+                 * If we wait for two, we are sure at least one has been finished !
+                 */
+                Assert.IsTrue(connectionFail.Wait(1000));
+                Assert.IsTrue(connectionFail.Wait(1000));
 
-
-            //The real test here is that eventually the Dispose method returns
-            publisher.Dispose();
-            publisher = null; //to avoid the teardown
+                context.Publisher.Dispose();
+                //The real test here is that eventually the Dispose method returns
+                Assert.Pass();
+                context.Publisher = null; //to avoid the double dispose of Publisher
+            }
         }
     }
 }
