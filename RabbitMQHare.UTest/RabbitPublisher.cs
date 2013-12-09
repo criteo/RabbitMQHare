@@ -59,7 +59,7 @@ namespace RabbitMQHare.UTest
             using (var context = CreateContext())
             {
                 context.Model.Setup(m => m.BasicPublish(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IBasicProperties>(), It.IsAny<byte[]>())).Callback(() => context.Mre.Set());
-                context.Publisher.Start();
+                context.Publisher.Start(0);
                 Assert.IsTrue(context.Publisher.Started);
 
                 var message = new byte[] { 0, 1, 1 };
@@ -80,7 +80,7 @@ namespace RabbitMQHare.UTest
             {
                 var called = false;
                 context.Publisher.NotEnqueuedHandler += () => called = true;
-                context.Publisher.Start();
+                context.Publisher.Start(0);
                 Assert.IsTrue(context.Publisher.Started);
 
                 var message = new byte[] { 0, 1, 1 };
@@ -103,7 +103,7 @@ namespace RabbitMQHare.UTest
             {
                 Assert.AreEqual(-1, context.Publisher.MySettings.MaxConnectionRetry, "For this test, we want the worst situation");
 
-                context.Publisher.Start();
+                context.Publisher.Start(0);
                 Assert.IsTrue(context.Publisher.Started);
 
                 var message = new byte[] { 0, 1, 1 };

@@ -79,7 +79,7 @@ namespace RabbitMQHare
             _cancellation = new CancellationTokenSource();
         }
 
-        internal void InternalStart(ConnectionFailureException callReason = null)
+        internal bool InternalStart(int maxConnectionRetry, ConnectionFailureException callReason = null)
         {
             var ok = false;
             var retries = 0;
@@ -87,7 +87,7 @@ namespace RabbitMQHare
             var attempts = new Dictionary<AmqpTcpEndpoint, int>(1);
             if (HasAlreadyStartedOnce)
                 OnTemporaryConnectionFailureFailure(callReason);
-            while (!ok && (++retries < _settings.MaxConnectionRetry || _settings.MaxConnectionRetry == -1 || _settings.MaxConnectionRetry == Timeout.Infinite) && !_cancellation.IsCancellationRequested)
+            while (!ok && (retries++ <= maxConnectionRetry || maxConnectionRetry == -1 || maxConnectionRetry == Timeout.Infinite) && !_cancellation.IsCancellationRequested)
             {
                 try
                 {
@@ -115,6 +115,7 @@ namespace RabbitMQHare
                 var e = new BrokerUnreachableException(attempts, exceptions);
                 OnPermanentConnectionFailureFailure(e);
             }
+            return ok;
         }
 
         private void TryRedeclareTopology()

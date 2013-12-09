@@ -33,7 +33,7 @@ namespace RabbitMQHare.UTest
                         RedeclareMyTopology = _ => { },
                     };
 
-                testContext.Stub.InternalStart();
+                Assert.IsTrue(testContext.Stub.InternalStart(0), "connection should succeed");
 
                 Assert.IsTrue(testContext.Stub.HasAlreadyStartedOnce);
             }
@@ -46,7 +46,8 @@ namespace RabbitMQHare.UTest
             {
                 var connection = new Mock<IConnection>();
                 var calls = 0;
-                connection.Setup(c => c.CreateModel()).Returns(testContext.Model.Object).Callback(() => { if (++calls < 3) throw new Exception("Argh I fail to connect !"); });
+                const int maxCalls = 3;
+                connection.Setup(c => c.CreateModel()).Returns(testContext.Model.Object).Callback(() => { if (++calls < maxCalls) throw new Exception("Argh I fail to connect !"); });
 
                 testContext.Stub = new StubConnectorCommon(testContext.Conf.Object)
                     {
@@ -55,7 +56,7 @@ namespace RabbitMQHare.UTest
                         RedeclareMyTopology = _ => { },
                     };
 
-                testContext.Stub.InternalStart();
+                Assert.True(testContext.Stub.InternalStart(maxCalls), "Connection should succeed after a few tentatives");
 
                 Assert.IsTrue(testContext.Stub.HasAlreadyStartedOnce);
             }

@@ -29,7 +29,9 @@ namespace RabbitMQHare
         public ConnectionFactory ConnectionFactory { get; set; }
 
         /// <summary>
-        /// When connection fails, indicates the maximum numbers of tries before calling the permanent connection failure handler. DefaultSettings sets it to 5. -1 Is infinite
+        /// When connection fails, indicates the maximum numbers of retries before calling the permanent connection failure handler.
+        /// DefaultSettings sets it to 5. -1 Is infinite.
+        /// This setting is used only when connection has been already established once.
         /// </summary>
         public int MaxConnectionRetry { get; set; }
 
@@ -159,6 +161,8 @@ namespace RabbitMQHare
 
         public bool Started { get; private set; }
 
+        private readonly object _starting = new object();
+
         /// <summary>
         /// Publish to a PUBLIC queue
         /// </summary>
@@ -221,17 +225,31 @@ namespace RabbitMQHare
         /// <summary>
         /// Start to publish. This method is NOT thread-safe. Advice is to use it once.
         /// </summary>
+        [Obsolete("Specify the number of initial connection retries")]
         public void Start()
         {
-            InternalStart();
+            Start(MySettings.MaxConnectionRetry);
+        }
 
-            if (!Started)
+        /// <summary>
+        /// Start to publish messages.
+        /// </summary>
+        /// <param name="maxConnectionRetry"></param>
+        /// <returns>true if the connection has succeeded. If false, you can retry to connect.</returns>
+        public bool Start(int maxConnectionRetry)
+        {
+            lock (_starting)
             {
-                _send.Start();
-                Started = true;
+                var succeeded = InternalStart(maxConnectionRetry);
+                if (!Started)
+                {
+                    _send.Start();
+                    Started = true;
+                }
+                //no more modifying after this point
+                OnStartHandler();
+                return succeeded;
             }
-            //no more modifying after this point
-            OnStartHandler();
         }
 
         /// <summary>
@@ -333,7 +351,7 @@ namespace RabbitMQHare
                                         OnACLFailure(e);
                                         break;
                                     default:
-                                        Start();
+                                        Start(MySettings.MaxConnectionRetry);
                                         break;
 
                                 }
@@ -343,7 +361,7 @@ namespace RabbitMQHare
                                 if (MySettings.RequeueMessageAfterFailure)
                                     _internalQueue.Enqueue(res);
                                 //No need to offer any event handler since reconnection will probably fail at the first time and the standard handlers will be called
-                                Start();
+                                Start(MySettings.MaxConnectionRetry);
                             }
                         }
                     }

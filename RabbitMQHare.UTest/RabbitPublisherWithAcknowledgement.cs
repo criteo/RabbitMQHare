@@ -64,7 +64,7 @@ namespace RabbitMQHare.UTest
             using (var context = CreateContext())
             {
                 context.Model.Setup(m => m.BasicPublish(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IBasicProperties>(), It.IsAny<byte[]>())).Callback(() => context.MreForFirstMessage.Set());
-                context.Publisher.Start();
+                context.Publisher.Start(0);
 
                 context.Publisher.Publish("test", Message);
                 Assert.IsTrue(context.MreForFirstMessage.Wait(1000));
@@ -84,7 +84,7 @@ namespace RabbitMQHare.UTest
                 var called = false;
                 context.Publisher.OnNAcked += m => called = true;
 
-                context.Publisher.Start();
+                context.Publisher.Start(0);
 
                 context.Publisher.Publish("test", Message);
                 Assert.IsTrue(context.MreForFirstMessage.Wait(1000));
@@ -124,7 +124,7 @@ namespace RabbitMQHare.UTest
                 var callbackCalled = new ManualResetEventSlim(false);
                 context.Publisher.OnNAcked += _ => callbackCalled.Set();
 
-                context.Publisher.Start();
+                context.Publisher.Start(0);
 
                 context.Publisher.Publish("test", Message);
                 Assert.IsTrue(context.MreForFirstMessage.Wait(1000), "the Message should be sent on the wire after a short time");

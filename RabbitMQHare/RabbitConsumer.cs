@@ -85,6 +85,7 @@ namespace RabbitMQHare
         private readonly RabbitQueue _myQueue;
         internal BaseConsumer _myConsumer;
         private string _myConsumerTag;
+        private readonly object starting = new object();
 
         /// <summary>
         /// Event handler for messages. If you modify this after Start methed is called, it won't be applied
@@ -193,19 +194,37 @@ namespace RabbitMQHare
         /// <summary>
         /// Start consuming messages. Not thread safe ! You should call it once. This api might call it at each connection failure.
         /// </summary>
+        [Obsolete("Specify the maximum number of initial retries")]
         public void Start()
         {
-            Start(null);
+            Start(_mySettings.MaxConnectionRetry, null);
         }
 
-        private void Start(ConnectionFailureException e)
+        /// <summary>
+        /// Start consuming messages
+        /// </summary>
+        /// <param name="maxConnectionRetry">number of allowed retries before giving up</param>
+        /// <returns>true if connection has succeeded</returns>
+        public bool Start(int maxConnectionRetry)
         {
-            InternalStart();
-            // The false for noHack is mandatory. Otherwise it will simply dequeue messages all the time.
-            if (_myConsumerTag != null)
-                Model.BasicConsume(_myQueue.Name, false, _myConsumerTag, _myConsumer);
-            else
-                _myConsumerTag = Model.BasicConsume(_myQueue.Name, false, _myConsumer);
+            return Start(maxConnectionRetry, null);
+        }
+
+        private bool Start(int maxConnectionRetry, ConnectionFailureException e)
+        {
+            lock (starting)
+            {
+                var succeeded = InternalStart(maxConnectionRetry);
+                if (succeeded)
+                {
+                    // The false for noHack is mandatory. Otherwise it will simply dequeue messages all the time.
+                    if (_myConsumerTag != null)
+                        Model.BasicConsume(_myQueue.Name, false, _myConsumerTag, _myConsumer);
+                    else
+                        _myConsumerTag = Model.BasicConsume(_myQueue.Name, false, _myConsumer);
+                }
+                return succeeded;
+            }
         }
 
         public ConsumerShutdownEventHandler GetShutdownHandler()
@@ -216,7 +235,7 @@ namespace RabbitMQHare
             return (_, shutdownEventArgs) =>
                 {
                     var e = new ConnectionFailureException(shutdownEventArgs);
-                    Start(e);
+                    Start(_mySettings.MaxConnectionRetry, e);
                 };
         }
 
@@ -228,7 +247,7 @@ namespace RabbitMQHare
             return (_, consumerEventArgs) =>
                 {
                     var e = new ConnectionFailureException(consumerEventArgs);
-                    Start(e);
+                    Start(_mySettings.MaxConnectionRetry, e);
                 };
         }
 

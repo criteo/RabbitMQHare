@@ -12,6 +12,7 @@ namespace RabbitMQHare.UTest
         private TestContext CreateContext()
         {
             var set = HareConsumerSettings.GetDefaultSettings();
+            set.IntervalConnectionTries = TimeSpan.Zero;
             set.HandleMessagesSynchronously = true;
             var props = new Mock<IBasicProperties>();
             var model = new Mock<IModel>(MockBehavior.Strict);
@@ -53,7 +54,7 @@ namespace RabbitMQHare.UTest
                     };
                 var error = 0;
                 context.Consumer.ErrorHandler += (_, __, ___) => ++error;
-                context.Consumer.Start();
+                context.Consumer.Start(0);
 
                 Assert.IsTrue(context.Consumer.HasAlreadyStartedOnce);
 
@@ -63,6 +64,28 @@ namespace RabbitMQHare.UTest
 
                 if (failInHandler)
                     Assert.AreEqual(1, error);
+            }
+        }
+
+        [Test]
+        public void InitialConnectionIssues()
+        {
+            using (var context = CreateContext())
+            {
+                var permFailureHandlerCalled = new ManualResetEventSlim();
+                context.Consumer.PermanentConnectionFailureHandler += e => { permFailureHandlerCalled.Set(); throw new Exception("I want the handler exception handler called!"); };
+                var handlerExceptionHandlerCalled = new ManualResetEventSlim();
+                context.Consumer.EventHandlerFailureHandler += e => handlerExceptionHandlerCalled.Set();
+                const int maxCalls = 3;
+                var calls = 0;
+                context.Model.Setup(m => m.BasicQos(It.IsAny<uint>(), It.IsAny<ushort>(), It.IsAny<bool>()))
+                    .Callback<uint, ushort, bool>((_, __, ___) => { if (Interlocked.Increment(ref calls) < maxCalls) throw new Exception("no connection for now"); });
+                Assert.IsFalse(context.Consumer.Start(1), "We should not raise an exception and return a nice false");
+
+                Assert.IsTrue(permFailureHandlerCalled.IsSet, "this handler should have been called before Start method return");
+                Assert.IsTrue(handlerExceptionHandlerCalled.IsSet);
+
+                Assert.IsTrue(context.Consumer.Start(0), "we should be able to start even after failure");
             }
         }
 
@@ -77,7 +100,7 @@ namespace RabbitMQHare.UTest
                         .Callback<string, bool, string, IBasicConsumer>((_, __, tag, consumer) => consumer.HandleBasicConsumeOk(tag))
                         .Returns("test");
 
-                context.Consumer.Start();
+                Assert.True(context.Consumer.Start(0), "connection should succeed");
 
                 Assert.IsTrue(context.Consumer.HasAlreadyStartedOnce);
 
