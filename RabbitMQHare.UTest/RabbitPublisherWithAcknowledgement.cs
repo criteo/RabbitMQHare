@@ -71,7 +71,7 @@ namespace RabbitMQHare.UTest
 
                 context.Model.Raise(m => m.BasicAcks += null, context.Model.Object, new BasicAckEventArgs { DeliveryTag = 1, Multiple = false });
 
-                Assert.That(context.Publisher._unacked.Count, Is.EqualTo(0).After(5000, 50));
+                Assert.That(() => context.Publisher._unacked.Count, Is.EqualTo(0).After(5000, 50));
             }
         }
 
@@ -91,7 +91,7 @@ namespace RabbitMQHare.UTest
 
                 context.Model.Raise(m => m.BasicNacks += null, context.Model.Object, new BasicNackEventArgs { DeliveryTag = 1, Multiple = false });
 
-                Assert.That(context.Publisher._unacked.Count, Is.EqualTo(0).After(5000, 50));
+                Assert.That(() => context.Publisher._unacked.Count, Is.EqualTo(0).After(5000, 50));
                 Assert.IsTrue(called);
             }
         }
@@ -132,7 +132,7 @@ namespace RabbitMQHare.UTest
                 context.Model.Raise(m => m.BasicNacks += null, context.Model.Object, new BasicNackEventArgs { DeliveryTag = (ulong)currentSeqNumber, Multiple = ackMultiple });
 
                 Assert.IsTrue(mreForResendMessage.Wait(1000), "the Message should be resent after a short time, because the connection is still usable");
-                Assert.That(context.Publisher._unacked.Count, Is.EqualTo(1).After(5000, 50), "when a Message is on the wire, we should have an unacked Message");
+                Assert.That(() => context.Publisher._unacked.Count, Is.EqualTo(1).After(5000, 50), "when a Message is on the wire, we should have an unacked Message");
                 Assert.IsTrue(callbackCalled.Wait(1000), "the OnNAck callback should have been called");
             }
         }
