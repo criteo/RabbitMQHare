@@ -7,23 +7,23 @@ In a nutshell
 
 RabbitMQHare is a wrapper around RabbitMQ.Client for C#.
 
-Informations about versions, dependencies, source repositories and contacts can 
+Informations about versions, dependencies, source repositories and contacts can
 be found in nuget_.
 
 
 Need & purpose
 --------------
 
-Criteo used to have several rabbitmq-related libs with small code reuse and a lot 
+Criteo used to have several rabbitmq-related libs with small code reuse and a lot
 of functionnal redundancy with the official client.
-Moreover, they lacked of customizable failure handling.
+Moreover, they lacked customizable failure handling.
 
 Function
 --------
 
 We decided to provide a simple wrapper around RabbitMQ.Client_ that:
-- provide simple yet powerful customisatability
-- try to enforce a light and resilient use of rabbitmq objects
+- provides simple yet powerful customisability
+- tries to enforce a light and resilient use of rabbitmq objects
 
 However we do not try to fill every need. Users that require strong insurances,
 full featured framework should use another lib or directly the official client.
@@ -45,11 +45,12 @@ Publisher:
 var set = HarePublisherSettings.DefaultSettings;
 RabbitPublisher.TemporaryConnectionFailure t = Console.WriteLine;
 var random = new Random();
-var exchange = new RabbitExchange("test323232");
+var exchange = new RabbitExchange("carrots");
+var initialConnectionTries = 5;
 
 var p = new RabbitPublisher(set, exchange);
 p.TemporaryConnectionFailureHandler += t
-p.Start();
+p.Start(initialConnectionTries);
 
 for(var i=0;i<1000;++i)
     p.Publish(random.Next().ToString(), new byte[0]);
@@ -61,8 +62,8 @@ Consumer:
 ```
 var set = HareConsumerSettings.DefaultSettings;
 
-var random = new Random();
-var exchange = new RabbitExchange("test323232");
+var exchange = new RabbitExchange("carrots");
+var initialConnectionTries = 5;
 
 BasicDeliverEventHandler messageHandler = (sender, e) =>
 {
@@ -75,13 +76,13 @@ BasicDeliverEventHandler messageHandler = (sender, e) =>
         Console.WriteLine("request treatment error" + ex);
     }
 };
-RabbitConnectorCommon.TemporaryConnectionFailure pp = (t) => Console.WriteLine(t);
-RabbitConnectorCommon.PermanentConnectionFailure ppp = (t) => Console.WriteLine(t);
+RabbitConnectorCommon.TemporaryConnectionFailure pp = Console.WriteLine;
+RabbitConnectorCommon.PermanentConnectionFailure ppp = Console.WriteLine;
 var c = new RabbitConsumer(set, exchange);
 c.MessageHandler += messageHandler;
 c.TemporaryConnectionFailureHandler += pp;
 c.PermanentConnectionFailureHandler += ppp;
-c.Start();
+c.Start(initialConnectionTries);
 ```
 
 

@@ -11,7 +11,7 @@ namespace RabbitMQHare
         ConnectionFactory ConnectionFactory { get; set; }
 
         /// <summary>
-        /// Maximum numbers of unsuccessful connection retry. 
+        /// Maximum numbers of unsuccessful connection retry.
         /// -1 (System.Threading.Timeout.Infinite) is infinite
         /// </summary>
         int MaxConnectionRetry { get; set; }
