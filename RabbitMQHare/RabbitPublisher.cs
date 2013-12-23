@@ -70,7 +70,7 @@ namespace RabbitMQHare
     }
 
     /// <summary>
-    /// TODO doc 
+    /// TODO doc
     /// </summary>
     public sealed class RabbitPublisher : RabbitConnectorCommon
     {

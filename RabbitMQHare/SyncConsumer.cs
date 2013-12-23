@@ -6,7 +6,7 @@ namespace RabbitMQHare
 {
     /// <summary>
     /// A class that dispatches messages synchronously.
-    /// 
+    ///
     /// That means the OnMessage event should be connected only to things
     /// that return _really_ quickly.
     /// </summary>

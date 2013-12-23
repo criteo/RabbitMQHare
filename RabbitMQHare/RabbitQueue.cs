@@ -6,7 +6,7 @@ namespace RabbitMQHare
     public class RabbitQueue
     {
         //TODO : this class can be modified after giving it to a publisher/consumer,
-        //we should have made this a struct instead, or at least use a copy operator 
+        //we should have made this a struct instead, or at least use a copy operator
 
         /// <summary>
         /// A non durable, non exclusive, non auto-delete queue.

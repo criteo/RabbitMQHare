@@ -6,7 +6,7 @@ namespace RabbitMQHare
     public class RabbitExchange
     {
         //TODO : this class can be modified after giving it to a publisher/consumer,
-        //we should have made this a struct instead, or at least use a copy operator 
+        //we should have made this a struct instead, or at least use a copy operator
 
         public RabbitExchange(string name)
         {

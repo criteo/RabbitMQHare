@@ -98,8 +98,8 @@ namespace RabbitMQHare
         /// Event handler for messages handler failure. If you modify this after Start method is called, it won't be applied
         /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
         /// Handler that is called when :
-        /// 1)the messageHandler throws an exception 
-        /// 2)the consumer itself throws an exception. 
+        /// 1)the messageHandler throws an exception
+        /// 2)the consumer itself throws an exception.
         /// You have to decide wether to ack the message in both case (even if AcknowledgeMessageForMe is set to true)
         /// </summary>
         public event ThreadedConsumer.CallbackExceptionEventHandlerWithMessage ErrorHandler;
@@ -229,7 +229,7 @@ namespace RabbitMQHare
 
         public ConsumerShutdownEventHandler GetShutdownHandler()
         {
-            //Will restart everything, that is the connection, the model, the consumer. 
+            //Will restart everything, that is the connection, the model, the consumer.
             //All messages that were already in treatment are lost and will be delivered again,
             //unless you have taken the responsability to ack messages
             return (_, shutdownEventArgs) =>
@@ -241,7 +241,7 @@ namespace RabbitMQHare
 
         public ConsumerEventHandler GetDeleteHandler()
         {
-            //Will restart everything, that is the connection, the model, the consumer. 
+            //Will restart everything, that is the connection, the model, the consumer.
             //All messages that were already in treatment are lost and will be delivered again,
             //unless you have taken the responsability to ack messages
             return (_, consumerEventArgs) =>
