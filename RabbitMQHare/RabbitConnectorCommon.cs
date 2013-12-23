@@ -52,7 +52,7 @@ namespace RabbitMQHare
         public delegate void ACLFailure(Exception e);
 
         /// <summary>
-        /// Called when another handler throw an exception
+        /// Called when another handler throws an exception
         /// </summary>
         /// <param name="e">Exception raised by the auth error</param>
         public delegate void EventHandlerFailure(Exception e);
@@ -81,7 +81,7 @@ namespace RabbitMQHare
 
         /// <summary>
         /// Called when too many exceptions ([MaxConnectionRetry]) are thrown when connecting to rabbit.
-        /// The object (consumer or publisher) will stop trying to connect and can be considered dead when this event is called
+        /// The object (Consumer or Publisher) will stop trying to connect and can be considered dead when this event is called
         /// </summary>
         public event PermanentConnectionFailure PermanentConnectionFailureHandler;
 

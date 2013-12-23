@@ -310,7 +310,7 @@ namespace RabbitMQHare
 
         private void HandleAcknowledgement(bool nack, ulong deliveryTag, bool multiple)
         {
-            var m = new Message();
+            Message m;
             List<Message> lostMessages = null;
             if (multiple)
             {
@@ -363,28 +363,15 @@ namespace RabbitMQHare
                             }
                             try
                             {
-                                res = SendMessage(res);
+                                SendMessage(res);
                             }
                             catch (RabbitMQ.Client.Exceptions.AlreadyClosedException e)
                             {
-                                if (MySettings.RequeueMessageAfterFailure)
-                                    _internalQueue.Enqueue(res);
-                                switch (e.ShutdownReason.ReplyCode)
-                                {
-                                    case RabbitMQ.Client.Framing.v0_9_1.Constants.AccessRefused:
-                                        OnACLFailure(e);
-                                        break;
-                                    default:
-                                        Start(MySettings.MaxConnectionRetry);
-                                        break;
-                                }
+                                HandleClosedConnection(res, e);
                             }
                             catch
                             {
-                                if (MySettings.RequeueMessageAfterFailure)
-                                    _internalQueue.Enqueue(res);
-                                //No need to offer any event handler since reconnection will probably fail at the first time and the standard handlers will be called
-                                Start(MySettings.MaxConnectionRetry);
+                                HandleGeneralException(res);
                             }
                         }
                     }
@@ -399,13 +386,35 @@ namespace RabbitMQHare
             }
         }
 
-        private Message SendMessage(Message res)
+        private void HandleGeneralException(Message res)
+        {
+            if (MySettings.RequeueMessageAfterFailure)
+                _internalQueue.Enqueue(res);
+            //No need to offer any event handler since reconnection will probably fail at the first time and the standard handlers will be called
+            Start(MySettings.MaxConnectionRetry);
+        }
+
+        private void HandleClosedConnection(Message res, RabbitMQ.Client.Exceptions.AlreadyClosedException e)
+        {
+            if (MySettings.RequeueMessageAfterFailure)
+                _internalQueue.Enqueue(res);
+            switch (e.ShutdownReason.ReplyCode)
+            {
+                case RabbitMQ.Client.Framing.v0_9_1.Constants.AccessRefused:
+                    OnACLFailure(e);
+                    break;
+                default:
+                    Start(MySettings.MaxConnectionRetry);
+                    break;
+            }
+        }
+
+        private void SendMessage(Message res)
         {
             var next = Model.NextPublishSeqNo;
             Model.BasicPublish(_myExchange.Name, res.RoutingKey, Props, res.Payload);
             if (MySettings.UseConfirms)
                 _unacked.TryAdd(next, res);
-            return res;
         }
 
         /// <summary>
@@ -468,7 +477,7 @@ namespace RabbitMQHare
 
     /// <summary>
     /// Structure representing an in-flight message.
-    /// This is used to account Acked and NAcked messages.
+    /// This is used to account for Acked and NAcked messages.
     /// </summary>
     public struct Message
     {
@@ -483,7 +492,7 @@ namespace RabbitMQHare
         public byte[] Payload { get; set; }
 
         /// <summary>
-        /// Number of times this message have been send and have failed.
+        /// Number of times this message has been send and have failed.
         /// </summary>
         public int Failed;
     }
