@@ -6,8 +6,14 @@ using RabbitMQ.Client.Exceptions;
 
 namespace RabbitMQHare
 {
+    /// <summary>
+    /// Default interface for settings used by Consumer and Publisher
+    /// </summary>
     public interface IHareSettings
     {
+        /// <summary>
+        /// Factory used to create the connection to rabbitmq. All passwords, endpoints, ports settings go there.
+        /// </summary>
         ConnectionFactory ConnectionFactory { get; set; }
 
         /// <summary>
@@ -22,16 +28,33 @@ namespace RabbitMQHare
         TimeSpan IntervalConnectionTries { get; set; }
     }
 
+    /// <summary>
+    /// The base class that implements connection handling, reconnection and topology declaration
+    /// </summary>
     public abstract class RabbitConnectorCommon : IDisposable
     {
+        /// <summary>
+        /// Event type used to announce a temporary connection failure (see TemporaryConnectionFailureHandler)
+        /// </summary>
+        /// <param name="e">Exception raised by the connection failure</param>
         public delegate void TemporaryConnectionFailure(Exception e);
+
+        /// <summary>
+        /// Event type used to announce a permanent connection failure (see PermanentConnectionFailureHandler)
+        /// </summary>
+        /// <param name="e">Exception raised by the connection failure</param>
         public delegate void PermanentConnectionFailure(BrokerUnreachableException e);
+
+        /// <summary>
+        /// Event type used to announce an authorization failure (see ACLFailureHandler)
+        /// </summary>
+        /// <param name="e"></param>
         public delegate void ACLFailure(Exception e);
 
         /// <summary>
         /// Called when another handler throw an exception
         /// </summary>
-        /// <param name="e"></param>
+        /// <param name="e">Exception raised by the auth error</param>
         public delegate void EventHandlerFailure(Exception e);
 
         internal IConnection Connection;
@@ -41,15 +64,15 @@ namespace RabbitMQHare
         internal abstract void SpecificRestart(IModel model);
         internal Func<IConnection> CreateConnection;
 
-        protected readonly CancellationTokenSource _cancellation;
+        protected readonly CancellationTokenSource Cancellation;
         internal bool HasAlreadyStartedOnce = false;
 
         public virtual void Dispose()
         {
-            _cancellation.Cancel();
+            Cancellation.Cancel();
         }
 
-        protected Random _random = new Random();
+        protected Random Random = new Random();
 
         /// <summary>
         /// Called when an exception is thrown when connecting to rabbit. It is called at most [MaxConnectionRetry] times before a more serious BrokerUnreachableException is thrown
@@ -58,16 +81,17 @@ namespace RabbitMQHare
 
         /// <summary>
         /// Called when too many exceptions ([MaxConnectionRetry]) are thrown when connecting to rabbit.
+        /// The object (consumer or publisher) will stop trying to connect and can be considered dead when this event is called
         /// </summary>
         public event PermanentConnectionFailure PermanentConnectionFailureHandler;
 
         /// <summary>
-        /// Called when a ACL exception is thrown
+        /// Called when a ACL exception is thrown.
         /// </summary>
         public event ACLFailure ACLFailureHandler;
 
         /// <summary>
-        /// Called when an exception is thrown by another handler, this obviously should not throw exception (it will crash)
+        /// Called when an exception is thrown by another handler, this obviously must not throw an exception (it will crash)
         /// </summary>
         public event EventHandlerFailure EventHandlerFailureHandler;
 
@@ -76,7 +100,7 @@ namespace RabbitMQHare
         {
             _settings = settings;
             CreateConnection = () => settings.ConnectionFactory.CreateConnection();
-            _cancellation = new CancellationTokenSource();
+            Cancellation = new CancellationTokenSource();
         }
 
         internal bool InternalStart(int maxConnectionRetry, ConnectionFailureException callReason = null)
@@ -87,7 +111,7 @@ namespace RabbitMQHare
             var attempts = new Dictionary<AmqpTcpEndpoint, int>(1);
             if (HasAlreadyStartedOnce)
                 OnTemporaryConnectionFailureFailure(callReason);
-            while (!ok && (retries++ <= maxConnectionRetry || maxConnectionRetry == -1 || maxConnectionRetry == Timeout.Infinite) && !_cancellation.IsCancellationRequested)
+            while (!ok && (retries++ <= maxConnectionRetry || maxConnectionRetry == -1 || maxConnectionRetry == Timeout.Infinite) && !Cancellation.IsCancellationRequested)
             {
                 try
                 {

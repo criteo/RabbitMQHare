@@ -20,7 +20,7 @@ namespace RabbitMQHare
         }
 
         public ConnectionFailureException(RabbitMQ.Client.Events.ConsumerEventArgs consumerEventArgs)
-            : base("Caused by a consumer failure, see ConsumerEventArgs proprety")
+            : base("Caused by a consumer failure, see ConsumerEventArgs property")
         {
             ConsumerEventArgs = consumerEventArgs;
             CausedByShutdown = false;

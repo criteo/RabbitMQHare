@@ -69,7 +69,7 @@ namespace RabbitMQHare.UTest
                     context.Publisher.Publish("toto", message);
 
                 Assert.IsTrue(context.Mre.Wait(1000));
-                context.Model.Verify(m => m.BasicPublish("testing", "toto", context.Publisher._props, message));
+                context.Model.Verify(m => m.BasicPublish("testing", "toto", context.Publisher.Props, message));
             }
         }
 
@@ -85,7 +85,7 @@ namespace RabbitMQHare.UTest
 
                 var message = new byte[] { 0, 1, 1 };
                 context.Mre = new ManualResetEventSlim(true);
-                context.Model.Setup(m => m.BasicPublish("testing", "toto", context.Publisher._props, message)).Callback(() => context.Mre.Wait(10000));
+                context.Model.Setup(m => m.BasicPublish("testing", "toto", context.Publisher.Props, message)).Callback(() => context.Mre.Wait(10000));
 
                 for (var i = 0; i < 2; ++i)
                     context.Publisher.Publish("toto", message);
@@ -108,7 +108,7 @@ namespace RabbitMQHare.UTest
 
                 var message = new byte[] { 0, 1, 1 };
                 var connectionFail = new SemaphoreSlim(0);
-                context.Model.Setup(m => m.BasicPublish(It.IsAny<string>(), It.IsAny<string>(), context.Publisher._props, message)).Throws(new Exception("I don't want your message anymore"));
+                context.Model.Setup(m => m.BasicPublish(It.IsAny<string>(), It.IsAny<string>(), context.Publisher.Props, message)).Throws(new Exception("I don't want your message anymore"));
                 context.Connection.Setup(c => c.CreateModel()).Callback(() => connectionFail.Release(1)).Throws(new Exception("And I don't want to accept your connection either"));
 
                 context.Publisher.Publish("test", message);

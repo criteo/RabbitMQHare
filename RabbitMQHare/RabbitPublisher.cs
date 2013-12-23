@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Threading;
 using RabbitMQ.Client;
 using System.Threading.Tasks;
-using RabbitMQ.Client.Events;
 
 namespace RabbitMQHare
 {
@@ -51,6 +50,11 @@ namespace RabbitMQHare
         /// </summary>
         public bool UseConfirms { get; set; }
 
+        /// <summary>
+        /// Return a minimal set of settings to work properly.
+        /// It connects to localhost using default user for rabbitmq.
+        /// </summary>
+        /// <returns></returns>
         public static HarePublisherSettings GetDefaultSettings()
         {
             return new HarePublisherSettings
@@ -70,11 +74,11 @@ namespace RabbitMQHare
     }
 
     /// <summary>
-    /// TODO doc
+    /// A publisher object allow to send messages to rabbitmq.
     /// </summary>
     public sealed class RabbitPublisher : RabbitConnectorCommon
     {
-        internal IBasicProperties _props;
+        internal IBasicProperties Props;
         private readonly ConcurrentQueue<Message> _internalQueue;
         private readonly object _lock = new object();
 
@@ -89,19 +93,33 @@ namespace RabbitMQHare
         //(the answer is from M. Radestock, technical lead of rmq)
         internal ConcurrentDictionary<ulong, Message> _unacked;
 
-        public delegate void NotEnqueued();
         /// <summary>
-        /// Called when queue is full and message are not enqueued
+        /// Event type used when a message could not be enqueued (see NotEnqueuedHandler)
+        /// </summary>
+        public delegate void NotEnqueued();
+
+        /// <summary>
+        /// Called when queue is full and message are not enqueued.
         /// </summary>
         public event NotEnqueued NotEnqueuedHandler;
 
+        /// <summary>
+        /// Event type used when the object start and restart (connect and reconnect).
+        /// See OnStart.
+        /// </summary>
+        /// <param name="pub"></param>
         public delegate void StartHandler(RabbitPublisher pub);
+
         /// <summary>
         /// Handler called at each start (and restart)
         /// This is different from StartHandler of consumer, so you can modify this at any time
         /// </summary>
         public event StartHandler OnStart;
 
+        /// <summary>
+        /// Event type used when receiving Nack messages (see OnNAcked)
+        /// </summary>
+        /// <param name="nackedMessages"></param>
         public delegate void NAckedHandler(ICollection<Message> nackedMessages);
 
         /// <summary>
@@ -157,8 +175,14 @@ namespace RabbitMQHare
                 }
         }
 
+        /// <summary>
+        /// The settings of the publisher
+        /// </summary>
         public HarePublisherSettings MySettings { get; internal set; }
 
+        /// <summary>
+        /// This is true if the publisher has been sucessfully started once.
+        /// </summary>
         public bool Started { get; private set; }
 
         private readonly object _starting = new object();
@@ -176,7 +200,7 @@ namespace RabbitMQHare
             {
                 _myExchange.Declare(m);
                 destinationQueue.Declare(m);
-                m.QueueBind(destinationQueue.Name, _myExchange.Name, "toto");
+                m.QueueBind(destinationQueue.Name, _myExchange.Name, "noRKneeded");
             };
         }
 
@@ -208,7 +232,7 @@ namespace RabbitMQHare
         private RabbitPublisher(HarePublisherSettings settings)
             : base(settings)
         {
-            _send = new Task(() => DequeueSend(_cancellation.Token));
+            _send = new Task(() => DequeueSend(Cancellation.Token));
             Started = false;
             MySettings = settings;
 
@@ -257,8 +281,8 @@ namespace RabbitMQHare
         /// </summary>
         internal override void SpecificRestart(IModel model)
         {
-            _props = model.CreateBasicProperties();
-            MySettings.ConstructProperties(_props);
+            Props = model.CreateBasicProperties();
+            MySettings.ConstructProperties(Props);
 
             if (MySettings.UseConfirms)
             {
@@ -353,7 +377,6 @@ namespace RabbitMQHare
                                     default:
                                         Start(MySettings.MaxConnectionRetry);
                                         break;
-
                                 }
                             }
                             catch
@@ -379,7 +402,7 @@ namespace RabbitMQHare
         private Message SendMessage(Message res)
         {
             var next = Model.NextPublishSeqNo;
-            Model.BasicPublish(_myExchange.Name, res.RoutingKey, _props, res.Payload);
+            Model.BasicPublish(_myExchange.Name, res.RoutingKey, Props, res.Payload);
             if (MySettings.UseConfirms)
                 _unacked.TryAdd(next, res);
             return res;
@@ -443,9 +466,20 @@ namespace RabbitMQHare
         }
     }
 
+    /// <summary>
+    /// Structure representing an in-flight message.
+    /// This is used to account Acked and NAcked messages.
+    /// </summary>
     public struct Message
     {
+        /// <summary>
+        /// Routing key used when sending the message
+        /// </summary>
         public string RoutingKey { get; set; }
+
+        /// <summary>
+        /// Binary payload of the message
+        /// </summary>
         public byte[] Payload { get; set; }
 
         /// <summary>

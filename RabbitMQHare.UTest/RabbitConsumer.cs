@@ -58,7 +58,7 @@ namespace RabbitMQHare.UTest
 
                 Assert.IsTrue(context.Consumer.HasAlreadyStartedOnce);
 
-                context.Consumer._myConsumer.HandleBasicDeliver("toto", 1, false, "testing", "routingKey", new BasicProperties(), new byte[] { 0, 1, 0 });
+                context.Consumer.MyConsumer.HandleBasicDeliver("toto", 1, false, "testing", "routingKey", new BasicProperties(), new byte[] { 0, 1, 0 });
 
                 Assert.AreEqual(1, received);
 
@@ -107,10 +107,10 @@ namespace RabbitMQHare.UTest
                 var restarted = 0;
                 context.Consumer.StartHandler += (_, e) => ++restarted;
 
-                context.Consumer._myConsumer.HandleModelShutdown(context.Model.Object, new ShutdownEventArgs(ShutdownInitiator.Peer, 0, "Thanks for playing"));
+                context.Consumer.MyConsumer.HandleModelShutdown(context.Model.Object, new ShutdownEventArgs(ShutdownInitiator.Peer, 0, "Thanks for playing"));
 
                 Assert.AreEqual(1, restarted);
-                context.Consumer._myConsumer.HandleBasicDeliver("toto", 1, false, "testing", "routingKey", new BasicProperties(), new byte[] { 0, 1, 0 });
+                context.Consumer.MyConsumer.HandleBasicDeliver("toto", 1, false, "testing", "routingKey", new BasicProperties(), new byte[] { 0, 1, 0 });
                 Assert.AreEqual(1, received);
             }
         }
