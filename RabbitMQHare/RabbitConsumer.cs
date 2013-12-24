@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -126,7 +128,7 @@ namespace RabbitMQHare
         public RabbitConsumer(HareConsumerSettings settings, RabbitExchange exchange)
             : this(settings)
         {
-            _myQueue = new RabbitQueue(exchange.Name + "-" + Random.Next()) {AutoDelete = true};
+            _myQueue = new RabbitQueue(GetUniqueIdentifier(exchange.Name)) { AutoDelete = true };
             RedeclareMyTopology = m =>
                 {
                     exchange.Declare(m);
@@ -164,7 +166,7 @@ namespace RabbitMQHare
             : base(settings)
         {
             _mySettings = settings;
-            _myConsumerTag = GetUniqueName();
+            _myConsumerTag = GetUniqueIdentifier("tag");
         }
 
         internal BaseConsumer CreateConsumer(IModel model)
@@ -262,7 +264,25 @@ namespace RabbitMQHare
             }
         }
 
-        private string GetUniqueName()
+        /// <summary>
+        /// This int is used to keep track of already attributed ids.
+        /// </summary>
+        private static int _uid = 0;
+
+        /// <summary>
+        /// Provides a unique identifier.
+        /// The result is unique on a given server+process for a given prefix
+        /// It provides garantees to avoid collisions in a reasonnable setup.
+        /// </summary>
+        /// <param name="prefix"></param>
+        /// <returns></returns>
+        private static string GetUniqueIdentifier(string prefix)
+        {
+            var uid = Interlocked.Increment(ref _uid);
+            return prefix + "-" + GetIPProcessId() + "-" + uid;
+        }
+
+        private static string GetIPProcessId()
         {
             string localIP = null;
             var host = Dns.GetHostEntry(Dns.GetHostName());
@@ -274,7 +294,7 @@ namespace RabbitMQHare
                     break;
                 }
             }
-            return (localIP ?? "0.0.0.0") + "-" + Random.Next();
+            return (localIP ?? "0.0.0.0") + "-" + Process.GetCurrentProcess().Id;
         }
     }
 }
