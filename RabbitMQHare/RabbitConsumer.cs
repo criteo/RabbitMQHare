@@ -30,7 +30,7 @@ namespace RabbitMQHare
         public ConnectionFactory ConnectionFactory { get; set; }
 
         /// <summary>
-        /// When connection fails, indicates the maximum numbers of tries before calling the permanent connection failure handler. DefaultSettings sets it to 5.-1 Is infinite
+        /// When connection fails, indicates the maximum number of tries before calling the permanent connection failure handler. DefaultSettings sets it to 5. -1 is infinite
         /// </summary>
         public int MaxConnectionRetry { get; set; }
 
@@ -69,14 +69,14 @@ namespace RabbitMQHare
                             UserName = ConnectionFactory.DefaultUser,
                             Password = ConnectionFactory.DefaultPass,
                             VirtualHost = ConnectionFactory.DefaultVHost,
-                            RequestedHeartbeat = 60
+                            RequestedHeartbeat = 60,
                         },
                     MaxConnectionRetry = 5,
                     IntervalConnectionTries = TimeSpan.FromSeconds(5),
                     MaxWorkers = 1,
                     AcknowledgeMessageForMe = true,
                     TaskScheduler = TaskScheduler.Default,
-                    HandleMessagesSynchronously = false
+                    HandleMessagesSynchronously = false,
                 };
         }
     }
@@ -196,14 +196,14 @@ namespace RabbitMQHare
         /// <summary>
         /// Start consuming messages. Not thread safe ! You should call it once. This api might call it at each connection failure.
         /// </summary>
-        [Obsolete("Specify the maximum number of initial retries")]
+        [Obsolete("Specify the maximum number of initial retries and check the returned value")]
         public void Start()
         {
             Start(_mySettings.MaxConnectionRetry, null);
         }
 
         /// <summary>
-        /// Start consuming messages
+        /// Start consuming messages. This method is not thread safe.
         /// </summary>
         /// <param name="maxConnectionRetry">number of allowed retries before giving up</param>
         /// <returns>true if connection has succeeded</returns>

@@ -87,8 +87,8 @@ namespace RabbitMQHare
         private readonly object _token = new object();
         private readonly object _tokenBlocking = new object();
 
-        //We use a dictionnary instead of a queue because there is no garantee that
-        //acks or nacks come into order :
+        //We use a dictionnary instead of a queue because there is no guarantee that
+        //acks or nacks come in order :
         //https://groups.google.com/forum/#!msg/rabbitmq-discuss/0O8Dick9xGA/ZF2_D8QeTzAJ
         //(the answer is from M. Radestock, technical lead of rmq)
         internal ConcurrentDictionary<ulong, Message> _unacked;
@@ -249,14 +249,14 @@ namespace RabbitMQHare
         /// <summary>
         /// Start to publish. This method is NOT thread-safe. Advice is to use it once.
         /// </summary>
-        [Obsolete("Specify the number of initial connection retries")]
+        [Obsolete("Specify the number of initial connection retries and check the returned value")]
         public void Start()
         {
             Start(MySettings.MaxConnectionRetry);
         }
 
         /// <summary>
-        /// Start to publish messages.
+        /// Start to publish messages. This method is not thread-safe.
         /// </summary>
         /// <param name="maxConnectionRetry"></param>
         /// <returns>true if the connection has succeeded. If false, you can retry to connect.</returns>

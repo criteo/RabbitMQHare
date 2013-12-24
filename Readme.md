@@ -1,6 +1,6 @@
 =========
 About RabbitMQHare
-=========
+==================
 
 In a nutshell
 -------------
@@ -42,13 +42,13 @@ Example usage
 Publisher:
 
 ```
-var set = HarePublisherSettings.DefaultSettings;
+var settings = HarePublisherSettings.GetDefaultSettings();
 RabbitPublisher.TemporaryConnectionFailure t = Console.WriteLine;
 var random = new Random();
 var exchange = new RabbitExchange("carrots");
 var initialConnectionTries = 5;
 
-var p = new RabbitPublisher(set, exchange);
+var p = new RabbitPublisher(settings, exchange);
 p.TemporaryConnectionFailureHandler += t
 p.Start(initialConnectionTries);
 
@@ -60,7 +60,7 @@ for(var i=0;i<1000;++i)
 Consumer:
 
 ```
-var set = HareConsumerSettings.DefaultSettings;
+var settings = HareConsumerSettings.GetDefaultSettings();
 
 var exchange = new RabbitExchange("carrots");
 var initialConnectionTries = 5;
@@ -78,7 +78,7 @@ BasicDeliverEventHandler messageHandler = (sender, e) =>
 };
 RabbitConnectorCommon.TemporaryConnectionFailure pp = Console.WriteLine;
 RabbitConnectorCommon.PermanentConnectionFailure ppp = Console.WriteLine;
-var c = new RabbitConsumer(set, exchange);
+var c = new RabbitConsumer(settings, exchange);
 c.MessageHandler += messageHandler;
 c.TemporaryConnectionFailureHandler += pp;
 c.PermanentConnectionFailureHandler += ppp;
