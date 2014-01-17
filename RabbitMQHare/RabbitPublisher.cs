@@ -83,7 +83,7 @@ namespace RabbitMQHare
         private readonly object _lock = new object();
 
         private readonly RabbitExchange _myExchange;
-        private readonly Task _send;
+        private readonly Thread _send;
         private readonly object _token = new object();
         private readonly object _tokenBlocking = new object();
 
@@ -232,7 +232,7 @@ namespace RabbitMQHare
         private RabbitPublisher(HarePublisherSettings settings)
             : base(settings)
         {
-            _send = new Task(() => DequeueSend(Cancellation.Token));
+            _send = new Thread(() => DequeueSend(Cancellation.Token));
             Started = false;
             MySettings = settings;
 
@@ -267,6 +267,9 @@ namespace RabbitMQHare
                 var succeeded = InternalStart(maxConnectionRetry);
                 if (!Started)
                 {
+                    // A thread name does not have to be unique. We consider that
+                    // the exchange name is qualifing enough.
+                    _send.Name = "RabbitPublisher:" + _myExchange.Name;
                     _send.Start();
                     Started = true;
                 }
