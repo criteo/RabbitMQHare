@@ -101,14 +101,21 @@ namespace RabbitMQHare.UTest
                 Assert.IsTrue(context.Publisher.Started);
 
                 var message = new byte[] { 0, 1, 1 };
-                context.Mre = new ManualResetEventSlim(true);
+                context.Mre = new ManualResetEventSlim(false);
                 context.Model.Setup(m => m.BasicPublish("testing", "toto", context.Publisher.Props, message)).Callback(() => context.Mre.Wait(10000));
 
-                for (var i = 0; i < 2; ++i)
-                    context.Publisher.Publish("toto", message);
+                //we add one to provoke the overflow of the queue
+                //add another one because the way this test works (one message is dequeued then the above mock blocks the next dequeue)
+                var messageToInsert = context.Publisher.MySettings.MaxMessageWaitingToBeSent + 1 + 1;
+
+                for (var i = 0; i < messageToInsert; ++i)
+                {
+                    Assert.AreEqual(i != messageToInsert - 1 , context.Publisher.Publish("toto", message),
+                        string.Format("only the last message is not published (this is {0}the last message)", i != messageToInsert - 1 ? "not " : ""));
+                }
                 context.Mre.Set();
 
-                Assert.IsTrue(called);
+                Assert.IsTrue(called, "when too many messages are waiting to be sent, the correct callback is called");
             }
         }
 
