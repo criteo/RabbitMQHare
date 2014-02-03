@@ -39,7 +39,7 @@ namespace RabbitMQHare.UTest
             }
         }
 
-        private TestContext CreateContext()
+        private TestContext CreateContext(int maxMessageInTheQueue = 1)
         {
             var props = new Mock<IBasicProperties>();
             var model = new Mock<IModel>();
@@ -53,7 +53,7 @@ namespace RabbitMQHare.UTest
             var settings = HarePublisherSettings.GetDefaultSettings();
             settings.MaxConnectionRetry = -1;
             settings.IntervalConnectionTries = TimeSpan.Zero;
-            settings.MaxMessageWaitingToBeSent = 1;
+            settings.MaxMessageWaitingToBeSent = maxMessageInTheQueue;
             var publisher = new RabbitMQHare.RabbitPublisher(settings, new RabbitExchange("testing"))
                 {
                     CreateConnection = () => connection.Object,
@@ -93,7 +93,7 @@ namespace RabbitMQHare.UTest
         [Test]
         public void NonEnqueued()
         {
-            using (var context = CreateContext())
+            using (var context = CreateContext(0))
             {
                 var called = false;
                 context.Publisher.NotEnqueuedHandler += () => called = true;
@@ -102,18 +102,9 @@ namespace RabbitMQHare.UTest
 
                 var message = new byte[] { 0, 1, 1 };
                 context.Mre = new ManualResetEventSlim(false);
-                context.Model.Setup(m => m.BasicPublish("testing", "toto", context.Publisher.Props, message)).Callback(() => context.Mre.Wait(10000));
+                context.Model.Setup(m => m.BasicPublish("testing", "toto", context.Publisher.Props, message));
 
-                //we add one to provoke the overflow of the queue
-                //add another one because the way this test works (one message is dequeued then the above mock blocks the next dequeue)
-                var messageToInsert = context.Publisher.MySettings.MaxMessageWaitingToBeSent + 1 + 1;
-
-                for (var i = 0; i < messageToInsert; ++i)
-                {
-                    Assert.AreEqual(i != messageToInsert - 1 , context.Publisher.Publish("toto", message),
-                        string.Format("only the last message is not published (this is {0}the last message)", i != messageToInsert - 1 ? "not " : ""));
-                }
-                context.Mre.Set();
+                Assert.False(context.Publisher.Publish("toto", message), "the last message should not to be published");
 
                 Assert.IsTrue(called, "when too many messages are waiting to be sent, the correct callback is called");
             }
