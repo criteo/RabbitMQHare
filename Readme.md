@@ -85,6 +85,22 @@ c.PermanentConnectionFailureHandler += ppp;
 c.Start(initialConnectionTries);
 ```
 
+Licensing
+---------
+
+Apache License v2. See accompanying LICENSE file for details
+
+
+Contributing
+------------
+
+How-to:
+
+Fork, commit, create a pull request.
+No contributor license agreement.
+
+PR should have tests showing bug fixed by the commit or non-regression tests.
+
 
 .. _nuget: http://nuget.org/packages/RabbitMQHare
 .. _RabbitMQ.Client: http://nuget.org/packages/RabbitMQ.Client
