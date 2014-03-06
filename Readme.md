@@ -5,10 +5,10 @@ About RabbitMQHare
 In a nutshell
 -------------
 
-RabbitMQHare is a wrapper around RabbitMQ.Client for C#.
+RabbitMQHare is a wrapper around [RabbitMQ.Client](http://nuget.org/packages/RabbitMQ.Client) for C#.
 
 Informations about versions, dependencies, source repositories and contacts can
-be found in nuget_.
+be found in [nuget](http://nuget.org/packages/RabbitMQHare).
 
 
 Need & purpose
@@ -21,7 +21,7 @@ Moreover, they lacked customizable failure handling.
 Function
 --------
 
-We decided to provide a simple wrapper around RabbitMQ.Client_ that:
+We decided to provide a simple wrapper around RabbitMQ.Client that:
 - provides simple yet powerful customisability
 - tries to enforce a light and resilient use of rabbitmq objects
 
@@ -100,7 +100,3 @@ Fork, commit, create a pull request.
 No contributor license agreement.
 
 PR should have tests showing bug fixed by the commit or non-regression tests.
-
-
-.. _nuget: http://nuget.org/packages/RabbitMQHare
-.. _RabbitMQ.Client: http://nuget.org/packages/RabbitMQ.Client
