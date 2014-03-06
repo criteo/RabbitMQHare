@@ -41,7 +41,7 @@ Example usage
 
 Publisher:
 
-```
+```C#
 var settings = HarePublisherSettings.GetDefaultSettings();
 RabbitPublisher.TemporaryConnectionFailure t = Console.WriteLine;
 var random = new Random();
@@ -59,7 +59,7 @@ for(var i=0;i<1000;++i)
 
 Consumer:
 
-```
+```C#
 var settings = HareConsumerSettings.GetDefaultSettings();
 
 var exchange = new RabbitExchange("carrots");
