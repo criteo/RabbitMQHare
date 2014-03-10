@@ -2,6 +2,8 @@
 About RabbitMQHare
 ==================
 
+[![Build Status](https://travis-ci.org/criteo/RabbitMQHare.png?branch=master)](https://travis-ci.org/criteo/RabbitMQHare)
+
 In a nutshell
 -------------
 
