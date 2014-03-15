@@ -3,6 +3,7 @@ About RabbitMQHare
 ==================
 
 [![Build Status](https://travis-ci.org/criteo/RabbitMQHare.png?branch=master)](https://travis-ci.org/criteo/RabbitMQHare)
+[![NuGet version](https://badge.fury.io/nu/RabbitMQHare.png)](http://badge.fury.io/nu/RabbitMQHare)
 
 In a nutshell
 -------------
