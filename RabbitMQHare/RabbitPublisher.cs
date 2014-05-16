@@ -97,7 +97,7 @@ namespace RabbitMQHare
     {
         internal IBasicProperties Props;
         private readonly ConcurrentQueue<Message> _internalQueue;
-        private readonly object _lock = new object();
+        private readonly AutoResetEvent _sendingMessages = new AutoResetEvent(true);
 
         private readonly RabbitExchange _myExchange;
         private readonly Thread _send;
@@ -373,26 +373,33 @@ namespace RabbitMQHare
                 Message res;
                 if (_internalQueue.TryPeek(out res))
                 {
-                    lock (_lock)
+                    if (_sendingMessages.WaitOne(TimeSpan.Zero))
                     {
-                        while (_internalQueue.TryDequeue(out res))
+                        try
                         {
-                            lock (_tokenBlocking)
+                            while (_internalQueue.TryDequeue(out res) && !token.IsCancellationRequested)
                             {
-                                Monitor.Pulse(_tokenBlocking);
+                                lock (_tokenBlocking)
+                                {
+                                    Monitor.Pulse(_tokenBlocking);
+                                }
+                                try
+                                {
+                                    SendMessage(res);
+                                }
+                                catch (RabbitMQ.Client.Exceptions.AlreadyClosedException e)
+                                {
+                                    HandleClosedConnection(res, e);
+                                }
+                                catch
+                                {
+                                    HandleGeneralException(res);
+                                }
                             }
-                            try
-                            {
-                                SendMessage(res);
-                            }
-                            catch (RabbitMQ.Client.Exceptions.AlreadyClosedException e)
-                            {
-                                HandleClosedConnection(res, e);
-                            }
-                            catch
-                            {
-                                HandleGeneralException(res);
-                            }
+                        }
+                        finally
+                        {
+                            _sendingMessages.Set();
                         }
                     }
                 }
@@ -492,7 +499,7 @@ namespace RabbitMQHare
                 Monitor.Pulse(_token);      // unlock DequeueSend thread for exit
             }
 
-            lock (_lock) { };                    // wait to process all messages existing in internal queue
+            _sendingMessages.WaitOne(); // wait to exit the dequeue/send loop
 
             if (Model != null)
                 Model.Dispose();

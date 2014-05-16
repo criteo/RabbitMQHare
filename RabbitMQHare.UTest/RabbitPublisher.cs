@@ -136,9 +136,9 @@ namespace RabbitMQHare.UTest
                 Assert.IsTrue(connectionFail.Wait(1000));
 
                 context.Publisher.Dispose();
+                context.Publisher = null; //to avoid the double dispose of Publisher
                 //The real test here is that eventually the Dispose method returns
                 Assert.Pass();
-                context.Publisher = null; //to avoid the double dispose of Publisher
             }
         }
     }
