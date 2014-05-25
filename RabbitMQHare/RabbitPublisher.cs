@@ -469,8 +469,12 @@ namespace RabbitMQHare
             {
                 lock (_tokenBlocking)
                 {
-                    //TODO : instead of being unblocked by each dequeue, add a low watermark
-                    Monitor.Wait(_tokenBlocking);
+                    // Check the queue length again to ensure that we don't enter the Wait if the queue was emptied before we got the lock
+                    if (_internalQueue.Count >= MySettings.MaxMessageWaitingToBeSent)
+                    {
+                        //TODO : instead of being unblocked by each dequeue, add a low watermark
+                        Monitor.Wait(_tokenBlocking);
+                    }
                 }
             }
             _internalQueue.Enqueue(new Message { RoutingKey = routingKey, Payload = message });
