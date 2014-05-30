@@ -96,7 +96,7 @@ namespace RabbitMQHare.UTest
             using (var context = CreateContext(0))
             {
                 var called = false;
-                context.Publisher.NotEnqueuedHandler += () => called = true;
+                context.Publisher.MessageNotEnqueuedHandler += m => called = true;
                 context.Publisher.Start(0);
                 Assert.IsTrue(context.Publisher.Started);
 

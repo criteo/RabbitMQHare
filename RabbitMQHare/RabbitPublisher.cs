@@ -113,12 +113,34 @@ namespace RabbitMQHare
         /// <summary>
         /// Event type used when a message could not be enqueued (see NotEnqueuedHandler)
         /// </summary>
+        [Obsolete("This event type has been replaced with MessageNotEnqueued")]
         public delegate void NotEnqueued();
+
+        /// <summary>
+        /// Event type used when a message could not be enqueued (see MessageNotEnqueued)
+        /// </summary>
+        public delegate void MessageNotEnqueued(Message message);
 
         /// <summary>
         /// Called when queue is full and message are not enqueued.
         /// </summary>
-        public event NotEnqueued NotEnqueuedHandler;
+        [Obsolete("Use MessageNotEnqueuedHandler instead")]
+        public event NotEnqueued NotEnqueuedHandler
+        {
+            add
+            {
+                MessageNotEnqueuedHandler += _ => value();
+            }
+            remove
+            {
+                MessageNotEnqueuedHandler -= _ => value();
+            }
+        }
+
+        /// <summary>
+        /// Called when queue is full and message are not enqueued.
+        /// </summary>
+        public event MessageNotEnqueued MessageNotEnqueuedHandler;
 
         /// <summary>
         /// Event type used when the object start and restart (connect and reconnect).
@@ -147,14 +169,14 @@ namespace RabbitMQHare
         /// </summary>
         public event NAckedHandler OnNAcked;
 
-        private void OnNotEnqueuedHandler()
+        private void OnMessageNotEnqueuedHandler(Message message)
         {
-            var copy = NotEnqueuedHandler; //see http://stackoverflow.com/questions/786383/c-sharp-events-and-thread-safety
+            var copy = MessageNotEnqueuedHandler; //see http://stackoverflow.com/questions/786383/c-sharp-events-and-thread-safety
             //this behavior allow thread safety and allow to expose event publicly
             if (copy != null)
                 try
                 {
-                    copy();
+                    copy(message);
                 }
                 catch (Exception e)
                 {
@@ -452,12 +474,13 @@ namespace RabbitMQHare
         /// <returns>false if the message was droppped instead of added to the queue</returns>
         public bool Publish(string routingKey, byte[] message)
         {
+            var _message = new Message { RoutingKey = routingKey, Payload = message };
             if (_internalQueue.Count >= MySettings.MaxMessageWaitingToBeSent)
             {
-                OnNotEnqueuedHandler();
+                OnMessageNotEnqueuedHandler(_message);
                 return false;
             }
-            _internalQueue.Enqueue(new Message { RoutingKey = routingKey, Payload = message });
+            _internalQueue.Enqueue(_message);
             lock (_token)
             {
                 Monitor.Pulse(_token);
