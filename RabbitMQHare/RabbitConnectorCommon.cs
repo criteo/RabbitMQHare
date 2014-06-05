@@ -130,6 +130,18 @@ namespace RabbitMQHare
             {
                 try
                 {
+                    if (Model != null)
+                    {
+                        try
+                        {
+                            Model.Close();
+                        }
+                        catch
+                        {
+                            // best effort to close the previous channel, ignore errors
+                        }
+                    }
+
                     Connection = CreateConnection();
                     Model = Connection.CreateModel();
                     Connection.AutoClose = true;
