@@ -29,10 +29,10 @@ namespace RabbitMQHare
     /// </summary>
     public class SyncConsumer : BaseConsumer
     {
-        public SyncConsumer(IModel model, bool autoAck)
+        public SyncConsumer(IModel model, bool autoAck, int prefetchCount)
             : base(model, autoAck)
         {
-            Model.BasicQos(0, 1, false);
+            Model.BasicQos(0, (ushort)prefetchCount, false);
         }
 
         protected override void ProcessOne(BasicDeliverEventArgs e)

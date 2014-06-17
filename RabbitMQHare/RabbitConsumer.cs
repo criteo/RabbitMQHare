@@ -37,6 +37,11 @@ namespace RabbitMQHare
         public int MaxWorkers { get; set; }
 
         /// <summary>
+        /// Maximum number of messages prefetchCount. DefaultSettings sets it to MaxWorkers
+        /// </summary>
+        public int? MessagesPrefetched { get; set; }
+
+        /// <summary>
         /// If false, it is your responsability to ack each message in your MessageHandler. DefaultSettings sets it to True
         /// </summary>
         public bool AcknowledgeMessageForMe { get; set; }
@@ -188,12 +193,13 @@ namespace RabbitMQHare
 
         internal BaseConsumer CreateConsumer(IModel model)
         {
+            var prefetchCount = _mySettings.MessagesPrefetched ?? _mySettings.MaxWorkers;
             if (_mySettings.HandleMessagesSynchronously)
             {
-                return new SyncConsumer(model, _mySettings.AcknowledgeMessageForMe);
+                return new SyncConsumer(model, _mySettings.AcknowledgeMessageForMe, prefetchCount);
             }
-            return new ThreadedConsumer(model, (ushort) _mySettings.MaxWorkers, _mySettings.AcknowledgeMessageForMe,
-                                        _mySettings.TaskScheduler ?? TaskScheduler.Default);
+            return new ThreadedConsumer(model, (ushort)_mySettings.MaxWorkers, _mySettings.AcknowledgeMessageForMe,
+                                        _mySettings.TaskScheduler ?? TaskScheduler.Default, prefetchCount);
         }
 
         internal override void SpecificRestart(IModel model)

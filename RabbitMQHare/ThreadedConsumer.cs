@@ -41,12 +41,12 @@ namespace RabbitMQHare
         /// </summary>
         public ushort MaxWorker { get; private set; }
 
-        public ThreadedConsumer(IModel model, ushort maxWorker, bool autoAck)
-            : this(model, maxWorker, autoAck, TaskScheduler.Default)
+        public ThreadedConsumer(IModel model, ushort maxWorker, bool autoAck, int prefetchCount)
+            : this(model, maxWorker, autoAck, TaskScheduler.Default, prefetchCount)
         {
         }
 
-        public ThreadedConsumer(IModel model, ushort maxWorker, bool autoAck, TaskScheduler scheduler)
+        public ThreadedConsumer(IModel model, ushort maxWorker, bool autoAck, TaskScheduler scheduler, int prefetchCount)
             : base(model, autoAck)
         {
             _scheduler = scheduler;
@@ -56,7 +56,7 @@ namespace RabbitMQHare
             _taskCount = 0;
 
             MaxWorker = Math.Min(maxWorker, (ushort)scheduler.MaximumConcurrencyLevel);
-            Model.BasicQos(0, MaxWorker, false);
+            Model.BasicQos(0, (ushort)prefetchCount, false);
 
             _dispatch = new Thread(() =>
             {
