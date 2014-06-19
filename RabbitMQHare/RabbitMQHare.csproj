@@ -53,6 +53,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BaseConsumer.cs" />
+    <Compile Include="IPublisher.cs" />
+    <Compile Include="IConsumer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RabbitConnectorCommon.cs" />
     <Compile Include="RabbitConsumer.cs" />

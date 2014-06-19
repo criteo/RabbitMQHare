@@ -104,7 +104,7 @@ namespace RabbitMQHare
     }
 
 
-    public sealed class RabbitConsumer : RabbitConnectorCommon
+    public sealed class RabbitConsumer : RabbitConnectorCommon, IConsumer
     {
         private readonly RabbitQueue _myQueue;
         internal BaseConsumer MyConsumer;

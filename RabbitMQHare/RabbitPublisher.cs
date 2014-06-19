@@ -93,7 +93,7 @@ namespace RabbitMQHare
     /// <summary>
     /// A publisher object allow to send messages to rabbitmq.
     /// </summary>
-    public sealed class RabbitPublisher : RabbitConnectorCommon
+    public sealed class RabbitPublisher : RabbitConnectorCommon, IPublisher
     {
         internal IBasicProperties Props;
         private readonly ConcurrentQueue<Message> _internalQueue;
