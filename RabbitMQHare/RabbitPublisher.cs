@@ -220,11 +220,44 @@ namespace RabbitMQHare
         public HarePublisherSettings MySettings { get; internal set; }
 
         /// <summary>
+        /// Returns #messages waiting in the destination queue.
+        /// It makes no sense to call this when sending messages to an exchange (it will throw an exception)
+        /// This will also throw an exception when the connection is broken.
+        /// Calling MessageCount can be useful to build some kind of flow control by polling it.
+        /// </summary>
+        public uint MessageCount
+        {
+            get
+            {
+                if (_destinationQueue != null)
+                {
+                    IConnection connection = Connection;
+                    try
+                    {
+                        using (var tmpModel = connection.CreateModel())
+                        {
+                            var response = _destinationQueue.Declare(tmpModel);
+                            return response.MessageCount;
+                        }
+                    }
+                    catch
+                    {
+                        //next message publish operation will detect broken connection
+                        //so we don't act here
+                        throw new InvalidOperationException("Connection is currently broken");
+                    }
+                }
+                throw new InvalidOperationException("This publisher target an exchange, it makes no sense to count messages in an exchange");
+            }
+        }
+
+        /// <summary>
         /// This is true if the publisher has been sucessfully started once.
         /// </summary>
         public bool Started { get; private set; }
 
         private readonly object _starting = new object();
+        private RabbitQueue _destinationQueue;
 
         /// <summary>
         /// Publish to a PUBLIC queue
@@ -234,6 +267,7 @@ namespace RabbitMQHare
         public RabbitPublisher(HarePublisherSettings mySettings, RabbitQueue destinationQueue)
             : this(mySettings)
         {
+            _destinationQueue = destinationQueue;
             _myExchange = new RabbitExchange(destinationQueue.Name + "-" + "exchange") { AutoDelete = true };
             RedeclareMyTopology = m =>
             {

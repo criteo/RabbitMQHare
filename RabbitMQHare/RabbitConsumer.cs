@@ -168,7 +168,7 @@ namespace RabbitMQHare
             : this(settings)
         {
             _myQueue = queue;
-            RedeclareMyTopology = _myQueue.Declare;
+            RedeclareMyTopology = m => _myQueue.Declare(m);
         }
 
         /// <summary>

@@ -51,9 +51,9 @@ namespace RabbitMQHare
         /// Declare the queue
         /// </summary>
         /// <param name="model"></param>
-        public void Declare(IModel model)
+        public QueueDeclareOk Declare(IModel model)
         {
-            model.QueueDeclare(Name, Durable, Exclusive, AutoDelete, Arguments);
+            return model.QueueDeclare(Name, Durable, Exclusive, AutoDelete, Arguments);
         }
     }
 }
