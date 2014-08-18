@@ -69,6 +69,16 @@ namespace RabbitMQHare.UTest
         }
 
         [Test]
+        public void PlugGenericHandler()
+        {
+            var set = HarePublisherSettings.GetDefaultSettings();
+            var publisher = new RabbitMQHare.RabbitPublisher(set, new RabbitExchange("test"));
+            publisher.HasEnoughEventHandlers(0);
+            publisher.PlugGenericHook((m, e) => { });
+            publisher.HasEnoughEventHandlers(1, "EventHandlerFailureHandler");
+        }
+
+        [Test]
         [TestCase(false)]
         [TestCase(true)]
         public void BasicSend(bool blockingPublish)

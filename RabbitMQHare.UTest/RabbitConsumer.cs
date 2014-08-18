@@ -21,6 +21,8 @@ using Moq;
 using NUnit.Framework;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Framing.v0_9_1;
+using System.Linq;
+using System.Reflection;
 
 namespace RabbitMQHare.UTest
 {
@@ -52,6 +54,16 @@ namespace RabbitMQHare.UTest
                 Consumer = consumer,
                 Model = model
             };
+        }
+
+        [Test]
+        public void PlugGenericHandler()
+        {
+            var set = HareConsumerSettings.GetDefaultSettings();
+            var consumer = new RabbitMQHare.RabbitConsumer(set, new RabbitExchange("test"));
+            consumer.HasEnoughEventHandlers(0);
+            consumer.PlugGenericHook((m, e) => { });
+            consumer.HasEnoughEventHandlers(1, ignored: "EventHandlerFailureHandler");
         }
 
         [Test]
@@ -141,6 +153,41 @@ namespace RabbitMQHare.UTest
             {
                 if (Consumer != null)
                     Consumer.Dispose();
+            }
+        }
+    }
+
+    public static class EventExtension
+    {
+        /// <summary>
+        /// Assert all events have the expected number of handlers.
+        /// </summary>
+        /// <param name="obj">the object to check for events</param>
+        /// <param name="expectedNumberOfHandler">the number of handlers expected by event</param>
+        /// <param name="ignored">name of events to ignore during checking</param>
+        public static void HasEnoughEventHandlers(this Object obj, int expectedNumberOfHandler, params string[] ignored)
+        {
+            foreach (var e in obj.GetType().GetEvents().Where(ev => !ignored.Contains(ev.Name)))
+            {
+                FieldInfo fi = obj.GetType().GetField(e.Name, BindingFlags.NonPublic | BindingFlags.Instance);
+                if (fi == null) // then try on the parent type (but limit ourselves to one level)
+                {
+                    fi = obj.GetType().BaseType.GetField(e.Name, BindingFlags.NonPublic | BindingFlags.Instance);
+                }
+                if (fi == null)
+                {
+                    // we suppose it's an event with no underlying field (with add/remove method specified)
+                    continue;
+                }
+                object value = fi.GetValue(obj);
+                if (value == null) // event with no handler defined
+                {
+                    Assert.AreEqual(0, expectedNumberOfHandler);
+                    continue;
+                }
+                var ev = value as Delegate;
+                var t = ev.GetInvocationList();
+                Assert.AreEqual(expectedNumberOfHandler, t.Length);
             }
         }
     }

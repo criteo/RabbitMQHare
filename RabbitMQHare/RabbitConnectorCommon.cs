@@ -110,6 +110,17 @@ namespace RabbitMQHare
         /// </summary>
         public event EventHandlerFailure EventHandlerFailureHandler;
 
+        /// <summary>
+        /// Use a generic event handler on all available events. Useful for debug
+        /// </summary>
+        /// <param name="genericHook"></param>
+        internal void PlugGenericHook(Action<string, Exception> genericHook)
+        {
+            ACLFailureHandler += e => genericHook("ACL error", e);
+            PermanentConnectionFailureHandler += e => genericHook("Permanent connection exception, won't try again ",e);
+            TemporaryConnectionFailureHandler += e => genericHook("Temporary connection exception, will try again.",e);
+            //we don't hook in EventHandlerFailureHandler
+        }
 
         internal RabbitConnectorCommon(IHareSettings settings)
         {

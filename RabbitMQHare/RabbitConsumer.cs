@@ -140,6 +140,20 @@ namespace RabbitMQHare
         /// </summary>
         public event ConsumerEventHandler StopHandler;
 
+        /// <summary>
+        /// Use a generic event handler on all available events. Useful for debug
+        /// The hook will be passed a short message and an exception (may be null)
+        /// </summary>
+        /// <param name="genericHook"></param>
+        public void PlugGenericHook(Action<string, Exception> genericHook)
+        {
+            base.PlugGenericHook(genericHook);
+            ErrorHandler += (self, ex, message) => genericHook("A message has not been treated properly by " + self, null);
+            MessageHandler += (sender, message) => genericHook("A message has been received from " + sender + ", message: " + message, null);
+            StartHandler += (self, e) => genericHook("Consumer " + self + "has been started", null);
+            StopHandler += (self, e) => genericHook("Consumer " + self + "has been stopped", null);
+        }
+
         private HareConsumerSettings _mySettings;
 
         /// <summary>

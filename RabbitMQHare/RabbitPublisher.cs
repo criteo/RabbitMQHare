@@ -215,6 +215,19 @@ namespace RabbitMQHare
         }
 
         /// <summary>
+        /// Use a generic event handler on all available events. Useful for debug.
+        /// The hook will be passed a short message and an exception (may be null)
+        /// </summary>
+        /// <param name="genericHook"></param>
+        public void PlugGenericHook(Action<string, Exception> genericHook)
+        {
+            base.PlugGenericHook(genericHook);
+            MessageNotEnqueuedHandler += m => genericHook("A message has not been enqueued. Message: "+ m, null);
+            OnNAcked += messages => genericHook("Some messages (" + messages.Count + ") were not acked.", null);
+            OnStart += self => genericHook("Publisher "+ self + " has been started", null);
+        }
+
+        /// <summary>
         /// The settings of the publisher
         /// </summary>
         public HarePublisherSettings MySettings { get; internal set; }
