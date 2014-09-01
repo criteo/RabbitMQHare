@@ -101,6 +101,28 @@ namespace RabbitMQHare.UTest
         }
 
         [Test]
+        public void BasicSendWithCustomProperties()
+        {
+            using (var context = CreateContext())
+            {
+                context.Model.Setup(m => m.BasicPublish(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IBasicProperties>(), It.IsAny<byte[]>())).Callback(() => context.Mre.Set());
+                context.Publisher.Start(0);
+                Assert.IsTrue(context.Publisher.Started);
+
+                var message = new byte[] { 0, 1, 1 };
+
+                var propStub = new Mock<IBasicProperties>();
+                propStub.SetupAllProperties();
+                propStub.Object.ContentType = "custom";
+
+                context.Publisher.Publish("toto", message, propStub.Object);
+
+                Assert.IsTrue(context.Mre.Wait(1000));
+                context.Model.Verify(m => m.BasicPublish("testing", "toto", propStub.Object, message));
+            }
+        }
+
+        [Test]
         public void NonEnqueued()
         {
             using (var context = CreateContext(0))

@@ -1,4 +1,5 @@
 using System;
+using RabbitMQ.Client;
 
 namespace RabbitMQHare
 {
@@ -46,8 +47,25 @@ namespace RabbitMQHare
         /// </summary>
         /// <param name="routingKey">routing key used to route the message. If not needed just put "toto"</param>
         /// <param name="message">the message you want to send</param>
+        /// <param name="messageProperties">properties of the message. If set, overrides ConstructProperties parameter</param>
+        /// <returns>false if the message was droppped instead of added to the queue</returns>
+        bool Publish(string routingKey, byte[] message, IBasicProperties messageProperties);
+
+        /// <summary>
+        /// Add message that will be sent asynchronously. This method is thread-safe
+        /// </summary>
+        /// <param name="routingKey">routing key used to route the message. If not needed just put "toto"</param>
+        /// <param name="message">the message you want to send</param>
         /// <returns>false if the message was droppped instead of added to the queue</returns>
         bool Publish(string routingKey, byte[] message);
+
+        /// <summary>
+        /// Add message that will be sent asynchronously BUT might block if queue is full. This method is thread-safe
+        /// </summary>
+        /// <param name="routingKey">routing key used to route the message. If not needed just put "toto"</param>
+        /// <param name="message">the message you want to send</param>
+        /// <param name="messageProperties">properties of the message. If set, overrides ConstructProperties parameter</param>
+        void BlockingPublish(string routingKey, byte[] message, IBasicProperties messageProperties);
 
         /// <summary>
         /// Add message that will be sent asynchronously BUT might block if queue is full. This method is thread-safe

@@ -508,7 +508,8 @@ namespace RabbitMQHare
         private void SendMessage(Message res)
         {
             var next = Model.NextPublishSeqNo;
-            Model.BasicPublish(_myExchange.Name, res.RoutingKey, Props, res.Payload);
+            var props = res.Properties ?? Props;
+            Model.BasicPublish(_myExchange.Name, res.RoutingKey, props, res.Payload);
             if (MySettings.UseConfirms)
                 _unacked.TryAdd(next, res);
         }
@@ -521,7 +522,19 @@ namespace RabbitMQHare
         /// <returns>false if the message was droppped instead of added to the queue</returns>
         public bool Publish(string routingKey, byte[] message)
         {
-            var _message = new Message { RoutingKey = routingKey, Payload = message };
+            return Publish(routingKey, message, null); //optional parameter? no, see CS0854
+        }
+
+        /// <summary>
+        /// Add message that will be sent asynchronously. This method is thread-safe
+        /// </summary>
+        /// <param name="routingKey">routing key used to route the message. If not needed just put "toto"</param>
+        /// <param name="message">the message you want to send</param>
+        /// <param name="messageProperties">properties of the message. If set, overrides ConstructProperties parameter</param>
+        /// <returns>false if the message was droppped instead of added to the queue</returns>
+        public bool Publish(string routingKey, byte[] message, IBasicProperties messageProperties)
+        {
+            var _message = new Message { RoutingKey = routingKey, Payload = message, Properties = messageProperties };
             if (_internalQueue.Count >= MySettings.MaxMessageWaitingToBeSent)
             {
                 OnMessageNotEnqueuedHandler(_message);
@@ -534,13 +547,23 @@ namespace RabbitMQHare
             }
             return true;
         }
-
+        ///<summary>
+        /// Add message that will be sent asynchronously BUT might block if queue is full. This method is thread-safe
+        /// </summary>
+        /// <param name="routingKey">routing key used to route the message. If not needed just put "toto"</param>
+        /// <param name="message">the message you want to send</param>
+        /// <param name="messageProperties">properties of the message. If set, overrides ConstructProperties parameter</param>
+        public void BlockingPublish(string routingKey, byte[] message)
+        {
+            BlockingPublish(routingKey, message, null);
+        }
         /// <summary>
         /// Add message that will be sent asynchronously BUT might block if queue is full. This method is thread-safe
         /// </summary>
         /// <param name="routingKey">routing key used to route the message. If not needed just put "toto"</param>
         /// <param name="message">the message you want to send</param>
-        public void BlockingPublish(string routingKey, byte[] message)
+        /// <param name="messageProperties">properties of the message. If set, overrides ConstructProperties parameter</param>
+        public void BlockingPublish(string routingKey, byte[] message, IBasicProperties messageProperties)
         {
             if (_internalQueue.Count >= MySettings.MaxMessageWaitingToBeSent)
             {
@@ -554,7 +577,8 @@ namespace RabbitMQHare
                     }
                 }
             }
-            _internalQueue.Enqueue(new Message { RoutingKey = routingKey, Payload = message });
+            var _message = new Message { RoutingKey = routingKey, Payload = message, Properties = messageProperties };
+            _internalQueue.Enqueue(_message);
             lock (_token)
             {
                 Monitor.Pulse(_token);
@@ -596,5 +620,7 @@ namespace RabbitMQHare
         /// Number of times this message has been send and have failed.
         /// </summary>
         public int Failed;
+
+        public IBasicProperties Properties { get; set; }
     }
 }
