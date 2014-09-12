@@ -246,7 +246,7 @@ namespace RabbitMQHare
             //this behavior allow thread safety and allow to expose event publicly
             if (copy != null)
                 copy(e);
-            else throw e;
+            // otherwise can't do anything
         }
 
 
