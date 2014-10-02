@@ -13,3 +13,19 @@ script:
   - xbuild /property:Configuration=Release
   - mono --runtime=v4.0 .nuget/NuGet.exe install NUnit.Runners -Version 2.6.1 -o packages
   - mono --runtime=v4.0 packages/NUnit.Runners.2.6.1/tools/nunit-console.exe -noxml -nodots -labels -stoponerror RabbitMQHare.UTest/bin/Release/RabbitMQHare.UTest.dll
+
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "eoZ6vWBNmROq6otVombKmYUjVWu55CCJ8BMJFWGqjV4yrsRLt/MSu6AdIADdrCsWw5oOkM6CQ/fGsfgAYJ7sUoBBJSqygxkKLkDgZOTiV5gevm1rMBi+2KBeVhxTJJPPTxuGZNHoLaDJ0nfs9K+/MjKjUjlhdKYL75CvDZ3JYg0="
+
+addons:
+  coverity_scan:
+    project:
+      name: "criteo/RabbitMQHare"
+      description: "<Your project description here>"
+    notification_email: kamaradclimber@gmail.com
+    build_command_prepend: "mono .nuget/NuGet.exe install RabbitMQHare/packages.config -OutputDirectory packages ; mono .nuget/NuGet.exe install RabbitMQHare.UTest/packages.config -OutputDirectory packages"
+    build_command:   "xbuild /property:Configuration=Release"
+    branch_pattern: coverity_scan
