@@ -37,7 +37,7 @@ namespace RabbitMQHare
         /// <summary>
         /// You can provide a way to modify the IBasicProperties of all messages. DefaultSettings sets it to  "text/plain" type and transient messages
         /// </summary>
-        public Action<IBasicProperties> ConstructProperties { get; set; }
+        public IBasicProperties Properties {get; set;}
 
         /// <summary>
         /// RabbitMQ object to specify how to connect to rabbitMQ. DefaultSettings sets it to localhost:5672 on virtual host "/"
@@ -80,10 +80,10 @@ namespace RabbitMQHare
                 MaxConnectionRetry = 5,
                 IntervalConnectionTries = TimeSpan.FromSeconds(5),
                 MaxMessageWaitingToBeSent = 10000,
-                ConstructProperties = props =>
+                Properties = new RabbitMQ.Client.Framing.v0_9_1.BasicProperties
                 {
-                    props.ContentType = "text/plain";
-                    props.DeliveryMode = 1;
+                    ContentType = "text/plain",
+                    DeliveryMode = 1,
                 },
                 UseConfirms = false,
             };
@@ -95,7 +95,11 @@ namespace RabbitMQHare
     /// </summary>
     public sealed class RabbitPublisher : RabbitConnectorCommon, IPublisher
     {
-        internal IBasicProperties Props;
+        /// <summary>
+        /// The properties sent by default with each messages
+        /// </summary>
+        internal IBasicProperties Properties { get; set; }
+
         private readonly ConcurrentQueue<Message> _internalQueue;
         private readonly AutoResetEvent _sendingMessages = new AutoResetEvent(true);
 
@@ -370,8 +374,7 @@ namespace RabbitMQHare
         /// </summary>
         internal override void SpecificRestart(IModel model)
         {
-            Props = model.CreateBasicProperties();
-            MySettings.ConstructProperties(Props);
+            Properties = MySettings.Properties ?? model.CreateBasicProperties();
 
             if (MySettings.UseConfirms)
             {
@@ -508,7 +511,7 @@ namespace RabbitMQHare
         private void SendMessage(Message res)
         {
             var next = Model.NextPublishSeqNo;
-            var props = res.Properties ?? Props;
+            var props = res.Properties ?? Properties;
             Model.BasicPublish(_myExchange.Name, res.RoutingKey, props, res.Payload);
             if (MySettings.UseConfirms)
                 _unacked.TryAdd(next, res);
