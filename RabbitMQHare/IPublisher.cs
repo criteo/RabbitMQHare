@@ -94,5 +94,13 @@ namespace RabbitMQHare
         /// Called when an exception is thrown by another handler, this obviously must not throw an exception (it will crash)
         /// </summary>
         event RabbitConnectorCommon.EventHandlerFailure EventHandlerFailureHandler;
+
+        /// <summary>
+        /// Returns #messages waiting in the destination queue.
+        /// It makes no sense to call this when sending messages to an exchange (it will throw an exception)
+        /// This will also throw an exception when the connection is broken.
+        /// Calling MessageCount can be useful to build some kind of flow control by polling it.
+        /// </summary>
+        uint MessageCount { get; }
     }
 }
