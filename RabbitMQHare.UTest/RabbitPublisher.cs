@@ -173,5 +173,38 @@ namespace RabbitMQHare.UTest
                 Assert.Pass();
             }
         }
+
+        [Test]
+        [TestCase(false)]
+        [TestCase(true)]
+        public void GracefulStopReturnCorrectValuesEvenOnDegradedCondition(bool blockedConnection)
+        {
+            var toPublish = 1000;
+            using (var context = CreateContext(toPublish * 2))
+            {
+                Assert.AreEqual(-1, context.Publisher.MySettings.MaxConnectionRetry, "For this test, we want the worst situation");
+
+                context.Model.Setup(m => m.BasicPublish(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IBasicProperties>(), It.IsAny<byte[]>()));
+                context.Publisher.Start(0);
+                Assert.IsTrue(context.Publisher.Started);
+
+                var message = new byte[] { 0, 1, 1 };
+                for (var i = 0; i < toPublish; ++i)
+                {
+                    if (blockedConnection && i == toPublish - 5)
+                    {
+                        // now publish is blocking
+                        context.Model.
+                            Setup(m => m.BasicPublish(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IBasicProperties>(), It.IsAny<byte[]>())).
+                            Callback(() => { context.Mre.Wait(); throw new Exception("tcp timeout"); });
+                    }
+                    context.Publisher.BlockingPublish("toto", message);
+                }
+
+                Assert.AreNotEqual(blockedConnection, context.Publisher.GracefulStop(TimeSpan.FromSeconds(1)));
+
+                if (blockedConnection) context.Mre.Set(); // release the blocking publish
+            }
+        }
     }
 }

@@ -53,6 +53,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BaseConsumer.cs" />
+    <Compile Include="ClientStoppingException.cs" />
     <Compile Include="IPublisher.cs" />
     <Compile Include="IConsumer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

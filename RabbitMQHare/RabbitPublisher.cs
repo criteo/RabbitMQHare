@@ -101,11 +101,17 @@ namespace RabbitMQHare
         internal IBasicProperties Properties { get; set; }
 
         private readonly ConcurrentQueue<Message> _internalQueue;
-        private readonly AutoResetEvent _sendingMessages = new AutoResetEvent(true);
+        private readonly AutoResetEvent _sendingMessagesMutex = new AutoResetEvent(true);
+
+        private readonly ManualResetEventSlim _stopping = new ManualResetEventSlim();
+        private long inFlightMessages = 0;
+        private readonly ManualResetEventSlim _stoppable = new ManualResetEventSlim();
 
         private readonly RabbitExchange _myExchange;
         private readonly Thread _send;
-        private readonly object _token = new object();
+
+        // signal object for message waiting in queue
+        private readonly object _messagesWaiting = new object();
         private readonly object _tokenBlocking = new object();
 
         //We use a dictionnary instead of a queue because there is no guarantee that
@@ -376,27 +382,41 @@ namespace RabbitMQHare
         {
             Properties = MySettings.Properties ?? model.CreateBasicProperties();
 
+            // all messages on the wire are lost (or will be reenqueued by the user)
+            if (HasAlreadyStartedOnce)
+            {
+                Interlocked.Exchange(ref inFlightMessages, _internalQueue.Count); // race condition here: messages could be published between count read and affectation
+            }
+
             if (MySettings.UseConfirms)
             {
                 model.ConfirmSelect();
                 //requeue all messages that were on the wire. This might lead to duplicates.
                 if (MySettings.RequeueMessageAfterFailure && _unacked != null)
                 {
-                    var unacked = new List<Message>(_unacked.Count);
-                    foreach (var m in _unacked.Values)
-                    {
-                        unacked.Add(new Message
-                        {
-                            Failed = m.Failed + 1,
-                            RoutingKey = m.RoutingKey,
-                            Payload = m.Payload
-                        });
-                    }
-                    OnNAckHandler(unacked);
+                    OnNAckHandler(UnAckedMessages);
                 }
                 _unacked = new ConcurrentDictionary<ulong, Message>();
                 model.BasicAcks += (_, args) => HandleAcknowledgement(false, args.DeliveryTag, args.Multiple);
                 model.BasicNacks += (_, args) => HandleAcknowledgement(true, args.DeliveryTag, args.Multiple);
+            }
+        }
+
+        private List<Message> UnAckedMessages
+        {
+            get
+            {
+                var unacked = new List<Message>(_unacked.Count);
+                foreach (var m in _unacked.Values)
+                {
+                    unacked.Add(new Message
+                    {
+                        Failed = m.Failed + 1,
+                        RoutingKey = m.RoutingKey,
+                        Payload = m.Payload
+                    });
+                }
+                return unacked;
             }
         }
 
@@ -406,32 +426,38 @@ namespace RabbitMQHare
             List<Message> lostMessages = null;
             if (multiple)
             {
-                /* modifying the dictionnary while it is modified is safe.
+                /* looping on the dictionnary while it is modified is safe.
                  * it may not reflect the last state of the dictionnary but any value that may be added
                  * after we start the loop is always above the threshold to be deleted. */
                 foreach (var tag in _unacked.Keys)
                 {
                     if (tag <= deliveryTag
-                        && _unacked.TryRemove(tag, out m)
-                        && nack)
+                        && _unacked.TryRemove(tag, out m))
                     {
-                        if (lostMessages == null) lostMessages = new List<Message>();
-                        m.Failed += 1;
-                        lostMessages.Add(m);
+                        if (nack)
+                        {
+                            if (lostMessages == null) lostMessages = new List<Message>();
+                            m.Failed += 1;
+                            lostMessages.Add(m);
+                        }
+                        DecreaseInFlightMessages();
                     }
                 }
-                if (lostMessages != null && lostMessages.Count > 0)
-                    OnNAckHandler(lostMessages);
             }
             else
             {
-                if (_unacked.TryRemove(deliveryTag, out m) && nack)
+                if (_unacked.TryRemove(deliveryTag, out m))
                 {
-                    m.Failed += 1;
-                    lostMessages = new List<Message> { m };
-                    OnNAckHandler(lostMessages);
+                    if (nack)
+                    {
+                        m.Failed += 1;
+                        lostMessages = new List<Message> { m };
+                    }
+                        DecreaseInFlightMessages();
                 }
             }
+            if (lostMessages != null && lostMessages.Count > 0)
+                OnNAckHandler(lostMessages);
         }
 
         /// <summary>
@@ -445,7 +471,7 @@ namespace RabbitMQHare
                 Message res;
                 if (_internalQueue.TryPeek(out res))
                 {
-                    if (_sendingMessages.WaitOne(TimeSpan.Zero))
+                    if (_sendingMessagesMutex.WaitOne(TimeSpan.Zero))
                     {
                         try
                         {
@@ -471,15 +497,15 @@ namespace RabbitMQHare
                         }
                         finally
                         {
-                            _sendingMessages.Set();
+                            _sendingMessagesMutex.Set();
                         }
                     }
                 }
                 else
                 {
-                    lock (_token)
+                    lock (_messagesWaiting)
                     {
-                        Monitor.Wait(_token);
+                        Monitor.Wait(_messagesWaiting);
                     }
                 }
             }
@@ -487,16 +513,16 @@ namespace RabbitMQHare
 
         private void HandleGeneralException(Message res)
         {
-            if (MySettings.RequeueMessageAfterFailure)
-                _internalQueue.Enqueue(res);
+            HandleFailedMessage(res, MySettings.RequeueMessageAfterFailure);
+
             //No need to offer any event handler since reconnection will probably fail at the first time and the standard handlers will be called
             Start(MySettings.MaxConnectionRetry);
         }
 
         private void HandleClosedConnection(Message res, RabbitMQ.Client.Exceptions.AlreadyClosedException e)
         {
-            if (MySettings.RequeueMessageAfterFailure)
-                _internalQueue.Enqueue(res);
+            HandleFailedMessage(res, MySettings.RequeueMessageAfterFailure);
+
             switch (e.ShutdownReason.ReplyCode)
             {
                 case RabbitMQ.Client.Framing.v0_9_1.Constants.AccessRefused:
@@ -508,13 +534,33 @@ namespace RabbitMQHare
             }
         }
 
+        private void HandleFailedMessage(Message res, bool retry)
+        {
+            if (retry)
+            {
+                //don't need to increase inflight messages
+                _internalQueue.Enqueue(res);
+            }
+            else
+            {
+                DecreaseInFlightMessages();
+            }
+        }
+
         private void SendMessage(Message res)
         {
             var next = Model.NextPublishSeqNo;
             var props = res.Properties ?? Properties;
             Model.BasicPublish(_myExchange.Name, res.RoutingKey, props, res.Payload);
             if (MySettings.UseConfirms)
+            {
                 _unacked.TryAdd(next, res);
+            }
+            else
+            {
+                // if we don't use confirms, a sent message in considered to be ok
+                DecreaseInFlightMessages();
+            }
         }
 
         /// <summary>
@@ -543,10 +589,10 @@ namespace RabbitMQHare
                 OnMessageNotEnqueuedHandler(_message);
                 return false;
             }
-            _internalQueue.Enqueue(_message);
-            lock (_token)
+            Enqueue(_message);
+            lock (_messagesWaiting)
             {
-                Monitor.Pulse(_token);
+                Monitor.Pulse(_messagesWaiting);
             }
             return true;
         }
@@ -581,25 +627,77 @@ namespace RabbitMQHare
                 }
             }
             var _message = new Message { RoutingKey = routingKey, Payload = message, Properties = messageProperties };
-            _internalQueue.Enqueue(_message);
-            lock (_token)
+            Enqueue(_message);
+            lock (_messagesWaiting)
             {
-                Monitor.Pulse(_token);
+                Monitor.Pulse(_messagesWaiting);
             }
+        }
+
+        /// <summary>
+        /// Check for stopping state, increment messages in flight count and enqueue.
+        /// This method will throw an exception if messages are sent
+        /// </summary>
+        /// <param name="message"></param>
+        private void Enqueue(Message message)
+        {
+            if (_stopping.IsSet)
+            {
+                throw new ClientStoppingException("Publisher is stopping, you cannot publish new messages");
+            }
+            Interlocked.Increment(ref inFlightMessages);
+            _internalQueue.Enqueue(message);
+        }
+
+        private void DecreaseInFlightMessages()
+        {
+            if (Interlocked.Decrement(ref inFlightMessages) <= 0 && _stopping.IsSet)
+            {
+                _stoppable.Set();
+            }
+        }
+
+        /// <summary>
+        /// Trigger stop process. As soon as this method is called, message enqueing may trigger exceptions.
+        /// It is the user responsability not to call any Publish method (directly, through an event handler, ...).
+        /// When the returned mutex is set, all messages have been sent.
+        /// </summary>
+        /// <returns>A mutex to wait on for stop process completion.</returns>
+        public ManualResetEventSlim Stop()
+        {
+            _stopping.Set();
+            if (Interlocked.Read(ref inFlightMessages) <= 0)
+            {
+                _stoppable.Set();
+            }
+            return _stoppable;
+        }
+
+        /// <summary>
+        /// Blocking method to wait for stop process completion. At the end, this publisher is disposable.
+        /// </summary>
+        /// <param name="timeout"></param>
+        /// <returns>true if stop process completed successfully, false otherwise. In the latter case, messages have probably been lost</returns>
+        public bool GracefulStop(TimeSpan timeout)
+        {
+            var stopped = Stop();
+            return stopped.Wait(timeout);
         }
 
         public override void Dispose()
         {
             base.Dispose();
-            lock (_token)
+            lock (_messagesWaiting)
             {
-                Monitor.Pulse(_token);      // unlock DequeueSend thread for exit
+                Monitor.Pulse(_messagesWaiting);      // unlock DequeueSend thread for exit
             }
 
-            _sendingMessages.WaitOne(); // wait to exit the dequeue/send loop
+            _sendingMessagesMutex.WaitOne(); // wait to exit the dequeue/send loop
 
             if (Model != null)
                 Model.Dispose();
+            _stoppable.Dispose();
+            _stopping.Dispose();
         }
     }
 

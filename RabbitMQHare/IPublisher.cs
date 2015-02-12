@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using RabbitMQ.Client;
 
 namespace RabbitMQHare
@@ -102,5 +103,20 @@ namespace RabbitMQHare
         /// Calling MessageCount can be useful to build some kind of flow control by polling it.
         /// </summary>
         uint MessageCount { get; }
+
+        /// <summary>
+        /// Trigger stop process. As soon as this method is called, message enqueing may trigger exceptions.
+        /// It is the user responsability not to call any Publish method (directly, through an event handler, ...).
+        /// When the returned mutex is set, all messages have been sent.
+        /// </summary>
+        /// <returns>A mutex to wait on for stop process completion.</returns>
+        ManualResetEventSlim Stop();
+
+        /// <summary>
+        /// Blocking method to wait for stop process completion. At the end, this publisher is disposable.
+        /// </summary>
+        /// <param name="timeout"></param>
+        /// <returns>true if stop process completed successfully, false otherwise. In the latter case, messages have probably been lost</returns>
+        bool GracefulStop(TimeSpan timeout);
     }
 }
