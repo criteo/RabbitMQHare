@@ -80,7 +80,7 @@ namespace RabbitMQHare
                 MaxConnectionRetry = 5,
                 IntervalConnectionTries = TimeSpan.FromSeconds(5),
                 MaxMessageWaitingToBeSent = 10000,
-                Properties = new RabbitMQ.Client.Framing.v0_9_1.BasicProperties
+                Properties = new RabbitMQ.Client.Framing.BasicProperties
                 {
                     ContentType = "text/plain",
                     DeliveryMode = 1,
@@ -525,7 +525,7 @@ namespace RabbitMQHare
 
             switch (e.ShutdownReason.ReplyCode)
             {
-                case RabbitMQ.Client.Framing.v0_9_1.Constants.AccessRefused:
+                case RabbitMQ.Client.Framing.Constants.AccessRefused:
                     OnACLFailure(e);
                     break;
                 default:

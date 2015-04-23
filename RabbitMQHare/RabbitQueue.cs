@@ -15,7 +15,7 @@
    specific language governing permissions and limitations
    under the License.
 */
-using System.Collections;
+using System.Collections.Generic;
 using RabbitMQ.Client;
 
 namespace RabbitMQHare
@@ -45,7 +45,7 @@ namespace RabbitMQHare
         public bool Durable { get; set; }
         public bool Exclusive { get; set; }
         public bool AutoDelete { get; set; }
-        public IDictionary Arguments { get; set; }
+        public IDictionary<string, object> Arguments { get; set; }
 
         /// <summary>
         /// Declare the queue
