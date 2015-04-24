@@ -16,14 +16,13 @@
    under the License.
 */
 using System;
-using System.Linq;
-using System.Reflection;
 using System.Threading;
 using Moq;
 using NUnit.Framework;
 using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
-using RabbitMQ.Client.Framing;
+using RabbitMQ.Client.Framing.v0_9_1;
+using System.Linq;
+using System.Reflection;
 
 namespace RabbitMQHare.UTest
 {
