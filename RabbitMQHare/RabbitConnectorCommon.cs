@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using System.Threading;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
+using RabbitMQ.Client.Framing;
 
 namespace RabbitMQHare
 {
@@ -133,8 +134,7 @@ namespace RabbitMQHare
         {
             var ok = false;
             var retries = 0;
-            var exceptions = new Dictionary<AmqpTcpEndpoint, Exception>(1);
-            var attempts = new Dictionary<AmqpTcpEndpoint, int>(1);
+            Exception exception = null;
             if (HasAlreadyStartedOnce)
                 OnTemporaryConnectionFailureFailure(callReason);
             while (!ok && (retries++ <= maxConnectionRetry || maxConnectionRetry == -1 || maxConnectionRetry == Timeout.Infinite) && !Cancellation.IsCancellationRequested)
@@ -166,15 +166,14 @@ namespace RabbitMQHare
                     var endpoint = new AmqpTcpEndpoint();
                     if (_settings.ConnectionFactory != null && _settings.ConnectionFactory.Endpoint != null)
                         endpoint = _settings.ConnectionFactory.Endpoint;
-                    exceptions[endpoint] = e;
-                    attempts[endpoint] = retries;
+                    exception = e;
                     OnTemporaryConnectionFailureFailure(e);
                     Thread.Sleep(_settings.IntervalConnectionTries);
                 }
             }
             if (!ok)
             {
-                var e = new BrokerUnreachableException(attempts, exceptions);
+                var e = new BrokerUnreachableException(exception);
                 OnPermanentConnectionFailureFailure(e);
             }
             return ok;
@@ -188,7 +187,7 @@ namespace RabbitMQHare
             }
             catch (OperationInterruptedException e)
             {
-                if (e.ShutdownReason.ReplyCode.Equals(RabbitMQ.Client.Framing.v0_9_1.Constants.AccessRefused))
+                if (e.ShutdownReason.ReplyCode.Equals(Constants.AccessRefused))
                     OnACLFailure(e);
                 throw;
             }

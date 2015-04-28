@@ -1,4 +1,5 @@
 using System;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
 namespace RabbitMQHare
@@ -10,7 +11,7 @@ namespace RabbitMQHare
         /// until next restart (=connection issue)
         ///  If you forgot to set this one, the consumer will swallow messages as fast as it can
         /// </summary>
-        event BasicDeliverEventHandler MessageHandler;
+        event EventHandler<BasicDeliverEventArgs> MessageHandler;
 
         /// <summary>
         /// Event handler for messages handler failure. If you modify this after Start method is called, it won't be applied
@@ -26,13 +27,13 @@ namespace RabbitMQHare
         /// Handler called at each start (and restart). If you modify this after Start method is called, it won't be applied
         /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
         /// </summary>
-        event ConsumerEventHandler StartHandler;
+        event EventHandler<ConsumerEventArgs> StartHandler;
 
         /// <summary>
         /// Handler called at each stop. If you modify this after Start method is called, it won't be applied
         /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
         /// </summary>
-        event ConsumerEventHandler StopHandler;
+        event EventHandler<ConsumerEventArgs> StopHandler;
 
         /// <summary>
         /// Start consuming messages. This method is not thread safe.
@@ -41,8 +42,8 @@ namespace RabbitMQHare
         /// <returns>true if connection has succeeded</returns>
         bool Start(int maxConnectionRetry);
 
-        ConsumerShutdownEventHandler GetShutdownHandler();
-        ConsumerEventHandler GetDeleteHandler();
+        EventHandler<ShutdownEventArgs> GetShutdownHandler();
+        EventHandler<ConsumerEventArgs> GetDeleteHandler();
 
         /// <summary>
         /// Called when an exception is thrown when connecting to rabbit. It is called at most [MaxConnectionRetry] times before a more serious BrokerUnreachableException is thrown

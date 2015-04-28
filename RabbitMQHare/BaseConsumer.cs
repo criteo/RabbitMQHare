@@ -48,19 +48,19 @@ namespace RabbitMQHare
         /// <summary>
         /// Handler called when a message is received and a spot is freed. If not provided it will swallow messages as fast as it can.
         /// </summary>
-        public event BasicDeliverEventHandler OnMessage;
+        public event EventHandler<BasicDeliverEventArgs> OnMessage;
         /// <summary>
         /// Handler called at start
         /// </summary>
-        public event ConsumerEventHandler OnStart;
+        public event EventHandler<ConsumerEventArgs> OnStart;
         /// <summary>
         /// Handler called when the consumer will stop
         /// </summary>
-        public event ConsumerEventHandler OnStop;
+        public event EventHandler<ConsumerEventArgs> OnStop;
         /// <summary>
         /// Handler called when rabbit mq broker deletes the connection
         /// </summary>
-        public event ConsumerEventHandler OnDelete;
+        public event EventHandler<ConsumerEventArgs> OnDelete;
         /// <summary>
         /// Handler called for all errors other than connection. It is your responsability to ack the message that may be passed.
         /// </summary>
@@ -68,7 +68,7 @@ namespace RabbitMQHare
         /// <summary>
         /// Handler called when connection issues occurs.
         /// </summary>
-        public event ConsumerShutdownEventHandler OnShutdown;
+        public event EventHandler<ShutdownEventArgs> OnShutdown;
 
         protected BaseConsumer(IModel model, bool autoAck)
             : base(model)
@@ -95,7 +95,7 @@ namespace RabbitMQHare
             if (OnDelete != null) OnDelete(this, new ConsumerEventArgs(consumerTag));
         }
 
-        public override void HandleModelShutdown(IModel model, ShutdownEventArgs reason)
+        public override void HandleModelShutdown(object model, ShutdownEventArgs reason)
         {
             base.HandleModelShutdown(model, reason);
             if (OnShutdown != null) OnShutdown(this, reason);

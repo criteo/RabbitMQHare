@@ -116,7 +116,7 @@ namespace RabbitMQHare
         /// until next restart (=connection issue)
         ///  If you forgot to set this one, the consumer will swallow messages as fast as it can
         /// </summary>
-        public event BasicDeliverEventHandler MessageHandler;
+        public event EventHandler<BasicDeliverEventArgs> MessageHandler;
 
         /// <summary>
         /// Event handler for messages handler failure. If you modify this after Start method is called, it won't be applied
@@ -132,13 +132,13 @@ namespace RabbitMQHare
         /// Handler called at each start (and restart). If you modify this after Start method is called, it won't be applied
         /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
         /// </summary>
-        public event ConsumerEventHandler StartHandler;
+        public event EventHandler<ConsumerEventArgs> StartHandler;
 
         /// <summary>
         /// Handler called at each stop. If you modify this after Start method is called, it won't be applied
         /// until next restart (connection issue). If this throws an error, you are screwed, buddy. Don't tempt the devil !
         /// </summary>
-        public event ConsumerEventHandler StopHandler;
+        public event EventHandler<ConsumerEventArgs> StopHandler;
 
         /// <summary>
         /// Use a generic event handler on all available events. Useful for debug
@@ -266,7 +266,7 @@ namespace RabbitMQHare
             }
         }
 
-        public ConsumerShutdownEventHandler GetShutdownHandler()
+        public EventHandler<ShutdownEventArgs> GetShutdownHandler()
         {
             //Will restart everything, that is the connection, the model, the consumer.
             //All messages that were already in treatment are lost and will be delivered again,
@@ -278,7 +278,7 @@ namespace RabbitMQHare
                 };
         }
 
-        public ConsumerEventHandler GetDeleteHandler()
+        public EventHandler<ConsumerEventArgs> GetDeleteHandler()
         {
             //Will restart everything, that is the connection, the model, the consumer.
             //All messages that were already in treatment are lost and will be delivered again,
